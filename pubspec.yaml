@@ -1,0 +1,15 @@
+name: resizable_columns
+description: "A Flutter widget that provides a flexible, resizable layout with draggable dividers. It allows you to create multi-pane layouts where users can resize the panes by dragging the dividers between them. Suitable for building responsive and interactive UIs that require adjustable panel sizes."
+version: 0.0.1
+homepage: https://github.com/SERDUN/resizable_columns
+
+environment:
+  sdk: ^3.5.3
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_lints: ^5.0.0

@@ -1,0 +1,22 @@
+name: resizable_columns_example
+description: "Demonstrates how to use the resizable_columns plugin."
+
+environment:
+  sdk: ^3.5.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  resizable_columns:
+    path: ../
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  integration_test:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

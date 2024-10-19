@@ -1,0 +1,4 @@
+enum ResizableOrientation {
+  vertical,
+  horizontal,
+}
