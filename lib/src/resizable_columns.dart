@@ -8,6 +8,7 @@ class ResizableColumns extends StatelessWidget {
     required this.children,
     required this.orientation,
     this.dividerThickness = 2.0,
+    this.dividerColor = Colors.transparent,
     this.initialProportions,
     this.initialSizes,
     this.draggable = true,
@@ -19,6 +20,7 @@ class ResizableColumns extends StatelessWidget {
   final ResizableOrientation orientation;
   final List<WidgetBuilder> children;
   final double dividerThickness;
+  final Color dividerColor;
   final List<double>? initialProportions;
   final List<double>? initialSizes;
   final bool draggable;
@@ -36,6 +38,7 @@ class ResizableColumns extends StatelessWidget {
           constraints: constraints,
           orientation: orientation,
           dividerThickness: dividerThickness,
+          dividerColor: dividerColor,
           initialProportions: initialProportions,
           initialSizes: initialSizes,
           draggable: draggable,
@@ -53,6 +56,7 @@ class _ResizableLayout extends StatefulWidget {
     required this.constraints,
     required this.orientation,
     required this.dividerThickness,
+    required this.dividerColor,
     this.initialProportions,
     this.initialSizes,
     required this.draggable,
@@ -65,6 +69,7 @@ class _ResizableLayout extends StatefulWidget {
   final BoxConstraints constraints;
   final ResizableOrientation orientation;
   final double dividerThickness;
+  final Color dividerColor;
   final List<double>? initialProportions;
   final List<double>? initialSizes;
   final bool draggable;
@@ -186,7 +191,7 @@ class _ResizableLayoutState extends State<_ResizableLayout> {
                     : SystemMouseCursors.resizeRow)
                 : MouseCursor.defer,
             child: Container(
-              color: Colors.transparent,
+              color: widget.dividerColor,
               width: widget.orientation == ResizableOrientation.horizontal ? widget.dividerThickness : null,
               height: widget.orientation == ResizableOrientation.vertical ? widget.dividerThickness : null,
             ),
