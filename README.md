@@ -6,13 +6,13 @@ interactive UIs that require adjustable panel sizes.
 
 Features
 
-	•	Resizable Panes: Allow users to adjust the size of child widgets by dragging dividers.
-	•	Horizontal and Vertical Orientations: Supports both horizontal and vertical layouts.
-	•	Initial Sizes and Proportions: Set initial sizes or proportions for each pane.
-	•	Minimum and Maximum Pane Sizes: Enforce constraints to prevent panes from becoming too small or too large.
-	•	Customizable Dividers: Adjust the thickness of dividers between panes.
-	•	Alignment Options: Align child widgets within their allocated space.
-	•	Responsive Design: Adjusts pane sizes proportionally when the window is resized.
+    •   Resizable Panes: Allow users to adjust the size of child widgets by dragging dividers.
+    •   Horizontal and Vertical Orientations: Supports both horizontal and vertical layouts.
+    •   Initial Sizes and Proportions: Set initial sizes or proportions for each pane.
+    •   Minimum and Maximum Pane Sizes: Enforce constraints to prevent panes from becoming too small or too large.
+    •   Customizable Dividers: Adjust the thickness of dividers between panes.
+    •   Alignment Options: Align child widgets within their allocated space.
+    •   Responsive Design: Adjusts pane sizes proportionally when the window is resized.
 
 Installation
 
@@ -74,6 +74,7 @@ Constructors
       required this.children,  
       required this.orientation,  
       this.dividerThickness = 2.0,  
+      this.dividerColor = Colors.transparent,
       this.initialProportions,  
       this.initialSizes,  
       this.draggable = true,  
@@ -83,14 +84,15 @@ Constructors
 
 Parameters
 
-	•	children: A list of functions that build the child widgets. Each function receives the BuildContext and the size allocated to that child.
-	•	orientation: The orientation of the layout (ResizableOrientation.horizontal or ResizableOrientation.vertical).
-	•	dividerThickness: The thickness of the dividers between panes.
-	•	initialProportions: The initial proportions for each pane. The list length must match the number of children.
-	•	initialSizes: The initial sizes for each pane. The list length must match the number of children.
-	•	draggable: Whether the dividers are draggable.
-	•	alignment: Alignment of the child widgets within their allocated space.
-	•	minChildSize: The minimum size each pane can shrink to.
+    •   children: A list of functions that build the child widgets. Each function receives the BuildContext and the size allocated to that child.
+    •   orientation: The orientation of the layout (ResizableOrientation.horizontal or ResizableOrientation.vertical).
+    •   dividerThickness: The thickness of the dividers between panes.
+    •   dividerColor: The color of the dividers between panes.
+    •   initialProportions: The initial proportions for each pane. The list length must match the number of children.
+    •   initialSizes: The initial sizes for each pane. The list length must match the number of children.
+    •   draggable: Whether the dividers are draggable.
+    •   alignment: Alignment of the child widgets within their allocated space.
+    •   minChildSize: The minimum size each pane can shrink to.
 
 ResizableOrientation
 
@@ -123,6 +125,7 @@ Here’s a complete example demonstrating a resizable layout with initial propor
             body: ResizableColumns(  
               orientation: ResizableOrientation.horizontal,  
               dividerThickness: 8.0,  
+              dividerColor: Colors.grey,
               initialProportions: const [1, 1, 1],  
               minChildSize: 100.0,  
               children: [  
