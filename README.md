@@ -1,5 +1,7 @@
 ResizableColumns
 
+[![pub package](https://img.shields.io/pub/v/resizable_columns.svg)](https://pub.dev/packages/resizable_columns)
+
 A Flutter widget that provides a flexible, resizable layout with draggable dividers. It allows you to create multi-pane
 layouts where users can resize the panes by dragging the dividers between them. Suitable for building responsive and
 interactive UIs that require adjustable panel sizes.
