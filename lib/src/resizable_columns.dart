@@ -17,8 +17,12 @@ class ResizableColumns extends StatefulWidget {
     this.alignment = Alignment.topLeft,
     this.minChildSize = 50.0,
     this.onSizesChanged,
-  }) : assert(initialProportions == null || initialProportions.length == children.length,
-            'initialProportions length must match the number of children');
+  })  : assert(initialProportions == null || initialProportions.length == children.length,
+            'initialProportions length must match the number of children'),
+        assert(initialSizes == null || initialSizes.length == children.length,
+            'initialSizes length must match the number of children'),
+        assert(initialSizes == null || initialProportions == null,
+            'Provide either initialSizes or initialProportions, not both');
 
   final ResizableOrientation orientation;
   final List<WidgetBuilder> children;
@@ -75,9 +79,8 @@ class _ResizableColumnsState extends State<ResizableColumns> {
 
   List<double> _initialWeights() {
     final count = widget.children.length;
-    for (final initial in [widget.initialSizes, widget.initialProportions]) {
-      if (initial != null && initial.length == count) return List<double>.of(initial);
-    }
+    final initial = widget.initialSizes ?? widget.initialProportions;
+    if (initial != null && initial.length == count) return List<double>.of(initial);
     // Distribute sizes equally if initial sizes or proportions are not provided
     return List<double>.filled(count, 1.0);
   }
