@@ -9,11 +9,8 @@ dependencies:
     sdk: flutter
   resizable_columns:
     path: ../
-  cupertino_icons: ^2.0.0
 
 dev_dependencies:
-  integration_test:
-    sdk: flutter
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
