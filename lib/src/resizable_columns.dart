@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import 'pane_sizes.dart';
+import 'resizable_drag_mode.dart';
 import 'resizable_orientation.dart';
 
 /// Lays its [children] out in a row or a column, with a draggable divider
@@ -43,6 +44,7 @@ class ResizableColumns extends StatefulWidget {
     this.initialProportions,
     this.initialSizes,
     this.draggable = true,
+    this.dragMode = ResizableDragMode.adjacent,
     this.alignment = Alignment.topLeft,
     this.minChildSize = 50.0,
     this.onSizesChanged,
@@ -93,6 +95,10 @@ class ResizableColumns extends StatefulWidget {
 
   /// Whether the dividers can be dragged.
   final bool draggable;
+
+  /// What a dragged divider does once the pane next to it is at
+  /// [minChildSize]: stop, or go on and shrink the panes further along.
+  final ResizableDragMode dragMode;
 
   /// How each child is aligned within its pane.
   final Alignment alignment;
@@ -273,6 +279,7 @@ class _ResizableColumnsState extends State<ResizableColumns> {
       index: dividerIndex,
       delta: _dragOffset,
       minSize: widget.minChildSize,
+      push: widget.dragMode == ResizableDragMode.push,
     );
     if (listEquals(movedSizes, previousSizes)) return;
 

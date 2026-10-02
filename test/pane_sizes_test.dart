@@ -108,5 +108,71 @@ void main() {
 
       expect(sizes, [300, 300]);
     });
+
+    test('returns the same sizes for no movement', () {
+      expect(movePaneDivider([300, 300], index: 0, delta: 0, minSize: 50), [300, 300]);
+      expect(movePaneDivider([300, 300], index: 0, delta: 0, minSize: 50, push: true), [300, 300]);
+    });
+
+    test('leaves the panes further along alone without push', () {
+      expect(movePaneDivider([200, 200, 200], index: 0, delta: 150, minSize: 100), [300, 100, 200]);
+      expect(movePaneDivider([200, 200, 200], index: 1, delta: -150, minSize: 100), [200, 100, 300]);
+    });
+  });
+
+  group('movePaneDivider with push', () {
+    List<double> push(List<double> sizes, {required int index, required double delta, double minSize = 100}) {
+      return movePaneDivider(sizes, index: index, delta: delta, minSize: minSize, push: true);
+    }
+
+    test('moves like without push while the next pane has room', () {
+      expect(push([200, 200, 200], index: 0, delta: 60), [260, 140, 200]);
+      expect(push([200, 200, 200], index: 1, delta: -60), [200, 140, 260]);
+    });
+
+    test('takes the rest from the pane after the next one', () {
+      expect(push([200, 200, 200], index: 0, delta: 150), [350, 100, 150]);
+    });
+
+    test('takes the rest from the pane before the previous one', () {
+      expect(push([200, 200, 200], index: 1, delta: -150), [150, 100, 350]);
+    });
+
+    test('goes through every pane on its way', () {
+      expect(push([200, 200, 200, 200], index: 0, delta: 250), [450, 100, 100, 150]);
+      expect(push([200, 200, 200, 200], index: 2, delta: -250), [150, 100, 100, 450]);
+    });
+
+    test('stops when every pane on its way is at the minimum', () {
+      expect(push([200, 200, 200], index: 0, delta: 900), [400, 100, 100]);
+      expect(push([200, 200, 200], index: 1, delta: -900), [100, 100, 400]);
+    });
+
+    test('grows only the pane next to the divider', () {
+      expect(push([200, 200, 200, 200], index: 1, delta: 150), [200, 350, 100, 150]);
+      expect(push([200, 200, 200, 200], index: 1, delta: -150), [150, 100, 350, 200]);
+    });
+
+    test('passes over a pane that is already below the minimum', () {
+      expect(push([200, 80, 200], index: 0, delta: 50), [250, 80, 150]);
+    });
+
+    test('moves the last divider like without push', () {
+      expect(push([200, 200, 200], index: 1, delta: 150), [200, 300, 100]);
+    });
+
+    test('keeps the total size', () {
+      final moved = push([123, 234, 345, 98], index: 0, delta: 400, minSize: 60);
+
+      expect(moved.reduce((a, b) => a + b), closeTo(800, 1e-9));
+      expect(moved, [523, 60, 119, 98]);
+    });
+
+    test('does not change the sizes it was given', () {
+      final sizes = [200.0, 200.0, 200.0];
+      push(sizes, index: 0, delta: 150);
+
+      expect(sizes, [200, 200, 200]);
+    });
   });
 }

@@ -591,6 +591,140 @@ void main() {
     });
   });
 
+  group('push drag mode', () {
+    ResizableColumns pushing(
+      int count, {
+      ResizableDragMode dragMode = ResizableDragMode.push,
+      ResizableOrientation orientation = ResizableOrientation.horizontal,
+      ValueChanged<List<double>>? onSizesChanged,
+    }) {
+      return ResizableColumns(
+        orientation: orientation,
+        dividerThickness: 0,
+        minChildSize: 100,
+        dragMode: dragMode,
+        onSizesChanged: onSizesChanged,
+        children: _panes(count),
+      );
+    }
+
+    testWidgets('stops at the next pane by default', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ResizableColumns(
+            orientation: ResizableOrientation.horizontal,
+            dividerThickness: 0,
+            minChildSize: 100,
+            children: _panes(3),
+          ),
+        ),
+      );
+
+      await tester.dragFrom(const Offset(200, 150), const Offset(150, 0));
+      await tester.pump();
+
+      expect(_widths(tester, 3), _closeToAll([300, 100, 200]));
+    });
+
+    testWidgets('stops at the next pane in adjacent mode', (tester) async {
+      await tester.pumpWidget(_host(pushing(3, dragMode: ResizableDragMode.adjacent)));
+
+      await tester.dragFrom(const Offset(200, 150), const Offset(150, 0));
+      await tester.pump();
+
+      expect(_widths(tester, 3), _closeToAll([300, 100, 200]));
+    });
+
+    testWidgets('shrinks the panes further along', (tester) async {
+      await tester.pumpWidget(_host(pushing(3)));
+
+      await tester.dragFrom(const Offset(200, 150), const Offset(150, 0));
+      await tester.pump();
+
+      expect(_widths(tester, 3), _closeToAll([350, 100, 150]));
+    });
+
+    testWidgets('shrinks the panes before it when dragged back', (tester) async {
+      await tester.pumpWidget(_host(pushing(3)));
+
+      await tester.dragFrom(const Offset(400, 150), const Offset(-150, 0));
+      await tester.pump();
+
+      expect(_widths(tester, 3), _closeToAll([150, 100, 350]));
+    });
+
+    testWidgets('stops when every pane on its way is at minChildSize', (tester) async {
+      await tester.pumpWidget(_host(pushing(4)));
+
+      await tester.dragFrom(const Offset(150, 150), const Offset(420, 0));
+      await tester.pump();
+
+      expect(_widths(tester, 4), _closeToAll([300, 100, 100, 100]));
+    });
+
+    testWidgets('gives the space back when the pointer returns', (tester) async {
+      await tester.pumpWidget(_host(pushing(3)));
+
+      final gesture = await tester.startGesture(const Offset(200, 150));
+      await gesture.moveBy(const Offset(150, 0));
+      await tester.pump();
+      expect(_widths(tester, 3), _closeToAll([350, 100, 150]));
+
+      await gesture.moveBy(const Offset(-30, 0));
+      await tester.pump();
+      expect(_widths(tester, 3), _closeToAll([320, 100, 180]));
+
+      await gesture.moveBy(const Offset(-120, 0));
+      await tester.pump();
+      expect(_widths(tester, 3), _closeToAll([200, 200, 200]));
+
+      await gesture.up();
+    });
+
+    testWidgets('keeps what a finished drag pushed', (tester) async {
+      await tester.pumpWidget(_host(pushing(3)));
+      await tester.dragFrom(const Offset(200, 150), const Offset(150, 0));
+      await tester.pump();
+
+      // A new drag starts from the pushed layout, so going back moves only the neighbours.
+      await tester.dragFrom(const Offset(350, 150), const Offset(-150, 0));
+      await tester.pump();
+
+      expect(_widths(tester, 3), _closeToAll([200, 250, 150]));
+    });
+
+    testWidgets('pushes in vertical orientation', (tester) async {
+      await tester.pumpWidget(
+        _host(pushing(3, orientation: ResizableOrientation.vertical), size: const Size(300, 600)),
+      );
+
+      await tester.dragFrom(const Offset(150, 200), const Offset(0, 150));
+      await tester.pump();
+
+      expect(_heights(tester, 3), _closeToAll([350, 100, 150]));
+    });
+
+    testWidgets('pushes in a right-to-left layout', (tester) async {
+      await tester.pumpWidget(_host(pushing(3), textDirection: TextDirection.rtl));
+
+      // The first pane is on the right; dragging its divider left grows it.
+      await tester.dragFrom(const Offset(400, 150), const Offset(-150, 0));
+      await tester.pump();
+
+      expect(_widths(tester, 3), _closeToAll([350, 100, 150]));
+    });
+
+    testWidgets('reports every pane it moved', (tester) async {
+      final reported = <List<double>>[];
+      await tester.pumpWidget(_host(pushing(3, onSizesChanged: reported.add)));
+
+      await tester.dragFrom(const Offset(200, 150), const Offset(150, 0));
+      await tester.pump();
+
+      expect(reported.last, _closeToAll([350, 100, 150]));
+    });
+  });
+
   group('onSizesChanged', () {
     late List<List<double>> reported;
 

@@ -13,6 +13,7 @@ interactive UIs that require adjustable panel sizes.
 - **Initial sizes and proportions:** set the starting size of each pane in pixels or as a share of the space.
 - **Minimum pane size:** a pane never shrinks below `minChildSize` while the space allows it.
 - **Customizable dividers:** set the thickness and the color of the dividers.
+- **Push mode:** a divider can go past a pane that is at its minimum and shrink the panes behind it.
 - **Easy to grab:** a divider can be dragged by an area wider than the divider itself.
 - **Alignment:** align each child within its pane.
 - **Responsive:** panes keep their proportions when the parent is resized.
@@ -96,6 +97,27 @@ ResizableColumns(
 );
 ```
 
+### Pushing other panes
+
+By default a divider stops when the pane next to it reaches `minChildSize`. With `ResizableDragMode.push` it keeps
+going and takes the space from the panes further along, one after another:
+
+```dart
+ResizableColumns(
+  orientation: ResizableOrientation.horizontal,
+  minChildSize: 100.0,
+  dragMode: ResizableDragMode.push,
+  children: [
+    (context) => Container(color: Colors.red),
+    (context) => Container(color: Colors.blue),
+    (context) => Container(color: Colors.green),
+  ],
+);
+```
+
+Dragging the first divider to the right shrinks the blue pane to 100 and then the green one. Dragging back during the
+same gesture gives them their space again.
+
 ### Saving and restoring sizes
 
 `onSizesChanged` reports the size of every pane in pixels while a divider is dragged. Keep the last value and pass it
@@ -133,6 +155,7 @@ const ResizableColumns({
   this.initialProportions,
   this.initialSizes,
   this.draggable = true,
+  this.dragMode = ResizableDragMode.adjacent,
   this.alignment = Alignment.topLeft,
   this.minChildSize = 50.0,
   this.onSizesChanged,
@@ -149,6 +172,7 @@ const ResizableColumns({
 | `initialProportions` | The initial share of the space for each pane. The length must match the number of children. |
 | `initialSizes` | The initial size of each pane in pixels. The length must match the number of children. Cannot be combined with `initialProportions`. |
 | `draggable` | Whether the dividers can be dragged. |
+| `dragMode` | `ResizableDragMode.adjacent` stops at the next pane's minimum; `ResizableDragMode.push` goes on and shrinks the panes further along. |
 | `alignment` | Alignment of each child within its pane. |
 | `minChildSize` | The minimum size a pane can shrink to. |
 | `onSizesChanged` | Called while a divider is dragged, with the size of every pane in pixels. |
@@ -169,6 +193,15 @@ const ResizableColumns({
 - **Changing the number of children** resets the sizes to the initial ones.
 - **An unbounded parent needs `initialSizes`.** Inside a scroll view along the orientation there is no space to share,
   so the sizes are taken from `initialSizes` as they are.
+
+### ResizableDragMode
+
+```dart
+enum ResizableDragMode {
+  adjacent,
+  push,
+}
+```
 
 ### ResizableOrientation
 
