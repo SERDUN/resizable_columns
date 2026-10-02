@@ -19,6 +19,7 @@ interactive UIs that require adjustable panel sizes.
 - **Responsive:** panes keep their proportions when the parent is resized.
 - **Saving and restoring:** `onSizesChanged` reports the pane sizes while a divider is dragged.
 - **Right-to-left aware:** dividers follow the pointer in right-to-left layouts.
+- **Resize cursor:** the mouse cursor changes over a divider on desktop and web.
 
 ## Installation
 
@@ -191,10 +192,14 @@ const ResizableColumns({
   something a pane depends on changes.
 - **Initial values are read once.** A later change of `initialSizes` or `initialProportions` does not move the panes.
 - **Changing the number of children** resets the sizes to the initial ones.
+- **`draggable: false` removes the drag areas.** The dividers are still drawn, but they take no gestures and do not
+  change the mouse cursor.
 - **An unbounded parent needs `initialSizes`.** Inside a scroll view along the orientation there is no space to share,
   so the sizes are taken from `initialSizes` as they are.
 
 ### ResizableDragMode
+
+What a dragged divider does once the pane next to it cannot shrink.
 
 ```dart
 enum ResizableDragMode {
@@ -203,7 +208,14 @@ enum ResizableDragMode {
 }
 ```
 
+| Value | Description |
+| --- | --- |
+| `adjacent` | Only the two panes next to the divider change. The divider stops when one of them reaches `minChildSize`. This is the default. |
+| `push` | The divider keeps going and takes the space from the panes further along, one after another. Only the pane it moves away from grows. |
+
 ### ResizableOrientation
+
+The axis along which the panes are laid out and resized.
 
 ```dart
 enum ResizableOrientation {
@@ -212,11 +224,16 @@ enum ResizableOrientation {
 }
 ```
 
+| Value | Description |
+| --- | --- |
+| `vertical` | Panes are stacked from top to bottom and resized by height. |
+| `horizontal` | Panes are placed side by side and resized by width. |
+
 ## Example
 
 The [example](https://github.com/SERDUN/resizable_columns/tree/master/example) app shows four columns with different
 content: a fixed-size box, a nested vertical layout with scrolling lists, a fixed-width list, and a child larger than
-its pane. Run it in Chrome:
+its pane. The outer row uses `ResizableDragMode.push`, the nested layout the default mode. Run it in Chrome:
 
 ```sh
 cd example

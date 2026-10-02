@@ -29,6 +29,12 @@ import 'resizable_orientation.dart';
 ///
 /// The parent has to bound the size along [orientation]. Inside a scroll view
 /// along that axis, pass [initialSizes]: they are then used as they are.
+///
+/// See also:
+///
+///  * [dragMode], to let a divider push the panes further along.
+///  * [dividerHitSize], to change how wide the draggable area of a divider is.
+///  * [onSizesChanged], to save the layout and restore it with [initialSizes].
 class ResizableColumns extends StatefulWidget {
   /// Creates a layout of resizable panes.
   ///
