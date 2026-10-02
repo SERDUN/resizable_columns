@@ -267,7 +267,7 @@ void main() {
     });
 
     MouseCursor cursor(WidgetTester tester) {
-      return tester.widget<MouseRegion>(find.ancestor(of: _dividers(), matching: find.byType(MouseRegion))).cursor;
+      return tester.widget<MouseRegion>(find.byType(MouseRegion)).cursor;
     }
 
     testWidgets('shows a column resize cursor in horizontal orientation', (tester) async {
@@ -282,10 +282,161 @@ void main() {
       expect(cursor(tester), SystemMouseCursors.resizeRow);
     });
 
-    testWidgets('defers the cursor when not draggable', (tester) async {
+    testWidgets('shows no resize cursor when not draggable', (tester) async {
       await tester.pumpWidget(_host(_columns(2, draggable: false)));
 
-      expect(cursor(tester), MouseCursor.defer);
+      expect(find.byType(MouseRegion), findsNothing);
+    });
+  });
+
+  group('drag area', () {
+    ResizableColumns thin({
+      double dividerThickness = 2,
+      double? dividerHitSize,
+      ResizableOrientation orientation = ResizableOrientation.horizontal,
+      List<double>? initialProportions,
+    }) {
+      if (dividerHitSize == null) {
+        return ResizableColumns(
+          orientation: orientation,
+          dividerThickness: dividerThickness,
+          minChildSize: 100,
+          initialProportions: initialProportions,
+          children: _panes(2),
+        );
+      }
+      return ResizableColumns(
+        orientation: orientation,
+        dividerThickness: dividerThickness,
+        dividerHitSize: dividerHitSize,
+        minChildSize: 100,
+        initialProportions: initialProportions,
+        children: _panes(2),
+      );
+    }
+
+    // A 2 px divider between two 299 px panes sits at 299..301.
+    Future<bool> movesWhenDraggedFrom(WidgetTester tester, Offset start, {Offset by = const Offset(40, 0)}) async {
+      final before = _pane(tester, 0).size;
+      await tester.dragFrom(start, by);
+      await tester.pump();
+      return _pane(tester, 0).size != before;
+    }
+
+    testWidgets('is 12 px wide by default', (tester) async {
+      await tester.pumpWidget(_host(thin()));
+
+      expect(await movesWhenDraggedFrom(tester, const Offset(293, 150)), isFalse);
+      expect(await movesWhenDraggedFrom(tester, const Offset(295, 150)), isTrue);
+    });
+
+    testWidgets('reaches the same distance into both panes', (tester) async {
+      await tester.pumpWidget(_host(thin()));
+      expect(await movesWhenDraggedFrom(tester, const Offset(305, 150), by: const Offset(-40, 0)), isTrue);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(_host(thin()));
+      expect(await movesWhenDraggedFrom(tester, const Offset(307, 150), by: const Offset(-40, 0)), isFalse);
+    });
+
+    testWidgets('does not change the layout', (tester) async {
+      await tester.pumpWidget(_host(thin(dividerHitSize: 60)));
+
+      expect(_widths(tester, 2), _closeToAll([299, 299]));
+      expect(_pane(tester, 1).left, 301);
+    });
+
+    testWidgets('follows dividerHitSize', (tester) async {
+      await tester.pumpWidget(_host(thin(dividerHitSize: 60)));
+
+      expect(await movesWhenDraggedFrom(tester, const Offset(269, 150)), isFalse);
+      expect(await movesWhenDraggedFrom(tester, const Offset(271, 150)), isTrue);
+    });
+
+    testWidgets('is never narrower than the divider', (tester) async {
+      await tester.pumpWidget(_host(thin(dividerThickness: 40, dividerHitSize: 0)));
+
+      // The divider sits at 280..320.
+      expect(await movesWhenDraggedFrom(tester, const Offset(279, 150)), isFalse);
+      expect(await movesWhenDraggedFrom(tester, const Offset(281, 150)), isTrue);
+    });
+
+    testWidgets('lets a divider of no thickness be dragged', (tester) async {
+      await tester.pumpWidget(_host(thin(dividerThickness: 0)));
+
+      await tester.dragFrom(const Offset(300, 150), const Offset(40, 0));
+      await tester.pump();
+
+      expect(_widths(tester, 2), _closeToAll([340, 260]));
+    });
+
+    testWidgets('moves with the divider', (tester) async {
+      await tester.pumpWidget(_host(thin()));
+      await tester.dragFrom(const Offset(300, 150), const Offset(100, 0));
+      await tester.pump();
+
+      expect(await movesWhenDraggedFrom(tester, const Offset(300, 150)), isFalse);
+      expect(await movesWhenDraggedFrom(tester, const Offset(396, 150)), isTrue);
+    });
+
+    testWidgets('lies across in vertical orientation', (tester) async {
+      await tester.pumpWidget(_host(thin(orientation: ResizableOrientation.vertical), size: const Size(300, 600)));
+
+      expect(await movesWhenDraggedFrom(tester, const Offset(150, 293), by: const Offset(0, 40)), isFalse);
+      expect(await movesWhenDraggedFrom(tester, const Offset(150, 295), by: const Offset(0, 40)), isTrue);
+    });
+
+    testWidgets('is mirrored in a right-to-left layout', (tester) async {
+      // The first pane is 200 px wide on the right, so the divider sits at 398..400.
+      await tester.pumpWidget(_host(thin(initialProportions: [200, 398]), textDirection: TextDirection.rtl));
+      expect(_pane(tester, 0).left, closeTo(400, 1e-6));
+
+      expect(await movesWhenDraggedFrom(tester, const Offset(201, 150)), isFalse);
+      expect(await movesWhenDraggedFrom(tester, const Offset(395, 150), by: const Offset(-40, 0)), isTrue);
+    });
+
+    testWidgets('lets a tap through to the pane under it', (tester) async {
+      int taps = 0;
+      await tester.pumpWidget(
+        _host(
+          ResizableColumns(
+            orientation: ResizableOrientation.horizontal,
+            minChildSize: 100,
+            children: [
+              (context) => GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => taps++,
+                    child: const SizedBox.expand(key: ValueKey('pane0')),
+                  ),
+              (context) => const SizedBox.expand(key: ValueKey('pane1')),
+            ],
+          ),
+        ),
+      );
+
+      await tester.tapAt(const Offset(296, 150));
+      expect(taps, 1);
+
+      // The same spot still starts a drag.
+      await tester.dragFrom(const Offset(296, 150), const Offset(40, 0));
+      await tester.pump();
+      expect(_pane(tester, 0).width, closeTo(339, 1e-6));
+    });
+
+    testWidgets('is absent when not draggable', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ResizableColumns(
+            orientation: ResizableOrientation.horizontal,
+            draggable: false,
+            dividerHitSize: 60,
+            children: _panes(2),
+          ),
+        ),
+      );
+
+      expect(find.byType(Stack), findsNothing);
+      expect(await movesWhenDraggedFrom(tester, const Offset(300, 150)), isFalse);
     });
   });
 

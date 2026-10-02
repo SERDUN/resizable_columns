@@ -1,4 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import 'pane_sizes.dart';
@@ -36,6 +39,7 @@ class ResizableColumns extends StatefulWidget {
     required this.orientation,
     this.dividerThickness = 2.0,
     this.dividerColor = const Color(0x00000000),
+    this.dividerHitSize = 12.0,
     this.initialProportions,
     this.initialSizes,
     this.draggable = true,
@@ -59,12 +63,19 @@ class ResizableColumns extends StatefulWidget {
   /// number resets the sizes to the initial ones.
   final List<WidgetBuilder> children;
 
-  /// The size of every divider along [orientation]. It is also the width of
-  /// the area that can be dragged.
+  /// The size of every divider along [orientation].
   final double dividerThickness;
 
   /// The color of the dividers. Transparent by default.
   final Color dividerColor;
+
+  /// The size along [orientation] of the area a divider can be dragged by.
+  ///
+  /// The area is centered on the divider and lies over the edges of the two
+  /// panes next to it, so it does not take any space in the layout. A drag
+  /// that starts there moves the divider; a tap still reaches the pane. It is
+  /// never smaller than [dividerThickness].
+  final double dividerHitSize;
 
   /// The share of the space each pane starts with.
   ///
@@ -175,12 +186,17 @@ class _ResizableColumnsState extends State<ResizableColumns> {
           builder: (context, weights, _) {
             final sizes = fitPaneSizes(weights, available: availableSize, minSize: widget.minChildSize);
 
-            return Flex(
+            final flex = Flex(
               direction: _isHorizontal ? Axis.horizontal : Axis.vertical,
               crossAxisAlignment: _crossAxisAlignment,
               children: [
                 for (int i = 0; i < panes.length; i++) ...[
-                  if (i > 0) _buildDivider(context, i - 1, sizes),
+                  if (i > 0)
+                    Container(
+                      color: widget.dividerColor,
+                      width: _isHorizontal ? widget.dividerThickness : null,
+                      height: _isHorizontal ? null : widget.dividerThickness,
+                    ),
                   SizedBox(
                     width: _isHorizontal ? sizes[i] : null,
                     height: _isHorizontal ? null : sizes[i],
@@ -189,40 +205,60 @@ class _ResizableColumnsState extends State<ResizableColumns> {
                 ],
               ],
             );
+            if (!widget.draggable) return flex;
+
+            // The drag areas lie over the panes instead of between them, so
+            // they can be wider than the dividers without moving anything.
+            return Stack(
+              fit: StackFit.passthrough,
+              children: [
+                flex,
+                for (int i = 0; i < panes.length - 1; i++) _buildDragArea(context, i, sizes),
+              ],
+            );
           },
         );
       },
     );
   }
 
-  Widget _buildDivider(BuildContext context, int dividerIndex, List<double> sizes) {
-    final draggable = widget.draggable;
+  Widget _buildDragArea(BuildContext context, int dividerIndex, List<double> sizes) {
     final isRtl = _isHorizontal && Directionality.maybeOf(context) == TextDirection.rtl;
+    final thickness = widget.dividerThickness;
+    final extent = math.max(widget.dividerHitSize, thickness);
+
+    double dividerStart = thickness * dividerIndex;
+    for (int i = 0; i <= dividerIndex; i++) {
+      dividerStart += sizes[i];
+    }
+    final start = dividerStart + (thickness - extent) / 2;
 
     void onUpdate(DragUpdateDetails details) {
       final delta = _isHorizontal ? details.delta.dx : details.delta.dy;
       _onDragUpdate(isRtl ? -delta : delta, dividerIndex, sizes);
     }
 
-    return GestureDetector(
+    // Translucent, so a tap on the edge of a pane still reaches the pane. The
+    // drag counts from the pointer down, or the divider would lag behind by
+    // the distance it took to win over the pane's own gestures.
+    final area = GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onVerticalDragUpdate: draggable && !_isHorizontal ? onUpdate : null,
-      onVerticalDragEnd: draggable && !_isHorizontal ? (_) => _endDrag() : null,
-      onVerticalDragCancel: draggable && !_isHorizontal ? _endDrag : null,
-      onHorizontalDragUpdate: draggable && _isHorizontal ? onUpdate : null,
-      onHorizontalDragEnd: draggable && _isHorizontal ? (_) => _endDrag() : null,
-      onHorizontalDragCancel: draggable && _isHorizontal ? _endDrag : null,
+      dragStartBehavior: DragStartBehavior.down,
+      onVerticalDragUpdate: _isHorizontal ? null : onUpdate,
+      onVerticalDragEnd: _isHorizontal ? null : (_) => _endDrag(),
+      onVerticalDragCancel: _isHorizontal ? null : _endDrag,
+      onHorizontalDragUpdate: _isHorizontal ? onUpdate : null,
+      onHorizontalDragEnd: _isHorizontal ? (_) => _endDrag() : null,
+      onHorizontalDragCancel: _isHorizontal ? _endDrag : null,
       child: MouseRegion(
-        cursor: draggable
-            ? (_isHorizontal ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow)
-            : MouseCursor.defer,
-        child: Container(
-          color: widget.dividerColor,
-          width: _isHorizontal ? widget.dividerThickness : null,
-          height: _isHorizontal ? null : widget.dividerThickness,
-        ),
+        hitTestBehavior: HitTestBehavior.translucent,
+        cursor: _isHorizontal ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow,
       ),
     );
+
+    return _isHorizontal
+        ? PositionedDirectional(start: start, top: 0, bottom: 0, width: extent, child: area)
+        : Positioned(top: start, left: 0, right: 0, height: extent, child: area);
   }
 
   void _onDragUpdate(double delta, int dividerIndex, List<double> sizes) {

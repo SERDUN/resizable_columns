@@ -2,6 +2,8 @@
 
 - Added `onSizesChanged` to report the pane sizes while a divider is dragged, so a layout can be saved and restored
   through `initialSizes`.
+- Added `dividerHitSize`. A divider can now be dragged by a 12 px area centered on it, which lies over the edges of
+  the panes and does not change the layout. Before, only the divider itself could be dragged.
 - Panes are no longer rebuilt while a divider is dragged or when the parent is resized.
 - Panes keep their proportions when the parent is resized, including after it shrinks and grows back.
 - Fixed `minChildSize` being broken when the parent shrinks.

@@ -13,6 +13,7 @@ interactive UIs that require adjustable panel sizes.
 - **Initial sizes and proportions:** set the starting size of each pane in pixels or as a share of the space.
 - **Minimum pane size:** a pane never shrinks below `minChildSize` while the space allows it.
 - **Customizable dividers:** set the thickness and the color of the dividers.
+- **Easy to grab:** a divider can be dragged by an area wider than the divider itself.
 - **Alignment:** align each child within its pane.
 - **Responsive:** panes keep their proportions when the parent is resized.
 - **Saving and restoring:** `onSizesChanged` reports the pane sizes while a divider is dragged.
@@ -128,6 +129,7 @@ const ResizableColumns({
   required this.orientation,
   this.dividerThickness = 2.0,
   this.dividerColor = const Color(0x00000000),
+  this.dividerHitSize = 12.0,
   this.initialProportions,
   this.initialSizes,
   this.draggable = true,
@@ -143,6 +145,7 @@ const ResizableColumns({
 | `orientation` | `ResizableOrientation.horizontal` or `ResizableOrientation.vertical`. |
 | `dividerThickness` | The thickness of the dividers between panes. |
 | `dividerColor` | The color of the dividers. Transparent by default. |
+| `dividerHitSize` | The size of the area a divider can be dragged by. Never smaller than `dividerThickness`. |
 | `initialProportions` | The initial share of the space for each pane. The length must match the number of children. |
 | `initialSizes` | The initial size of each pane in pixels. The length must match the number of children. Cannot be combined with `initialProportions`. |
 | `draggable` | Whether the dividers can be dragged. |
@@ -156,6 +159,8 @@ const ResizableColumns({
   keep their proportions when the parent is resized.
 - **The minimum yields when it cannot fit.** If the space is smaller than `minChildSize` times the number of panes, the
   panes share it equally.
+- **The drag area lies over the panes.** It is `dividerHitSize` wide, centered on the divider, and takes no space in
+  the layout. A drag that starts there moves the divider, and a tap still reaches the pane under it.
 - **A child gets the constraints of its pane.** A child larger than its pane is shrunk to fit. To keep its size and
   clip it instead, wrap it in `ClipRect` and `OverflowBox`, or make it scrollable.
 - **Panes are not rebuilt while dragging.** The builders run when `ResizableColumns` itself is rebuilt or when
