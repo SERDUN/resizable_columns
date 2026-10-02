@@ -34,8 +34,9 @@ class ResizableColumns extends StatefulWidget {
 
 class _ResizableColumnsState extends State<ResizableColumns> {
   // Relative sizes of the panes. Pixels are derived from them on every layout,
-  // so the proportions survive a resize of the parent.
-  late List<double> _weights;
+  // so the proportions survive a resize of the parent. A notifier rather than
+  // setState, so a drag lays the panes out again without rebuilding them.
+  late final ValueNotifier<List<double>> _weights;
 
   List<double>? _dragStartSizes;
   double _dragOffset = 0.0;
@@ -45,14 +46,20 @@ class _ResizableColumnsState extends State<ResizableColumns> {
   @override
   void initState() {
     super.initState();
-    _weights = _initialWeights();
+    _weights = ValueNotifier<List<double>>(_initialWeights());
+  }
+
+  @override
+  void dispose() {
+    _weights.dispose();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(ResizableColumns oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.children.length != _weights.length) {
-      _weights = _initialWeights();
+    if (widget.children.length != _weights.value.length) {
+      _weights.value = _initialWeights();
       _endDrag();
     }
   }
@@ -81,30 +88,38 @@ class _ResizableColumnsState extends State<ResizableColumns> {
 
   @override
   Widget build(BuildContext context) {
+    // Built here and not below, so that only this widget's own rebuild calls
+    // the builders. A drag or a resize of the parent reuses the same panes.
+    final panes = [
+      for (final builder in widget.children) Align(alignment: widget.alignment, child: builder(context)),
+    ];
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableSize = _availableSize(constraints);
         assert(availableSize.isFinite || widget.initialSizes != null,
             'ResizableColumns needs a bounded size along its orientation, or initialSizes to size the panes');
 
-        final sizes = fitPaneSizes(_weights, available: availableSize, minSize: widget.minChildSize);
+        return ValueListenableBuilder<List<double>>(
+          valueListenable: _weights,
+          builder: (context, weights, _) {
+            final sizes = fitPaneSizes(weights, available: availableSize, minSize: widget.minChildSize);
 
-        return Flex(
-          direction: _isHorizontal ? Axis.horizontal : Axis.vertical,
-          crossAxisAlignment: _crossAxisAlignment,
-          children: [
-            for (int i = 0; i < widget.children.length; i++) ...[
-              if (i > 0) _buildDivider(context, i - 1, sizes),
-              SizedBox(
-                width: _isHorizontal ? sizes[i] : null,
-                height: _isHorizontal ? null : sizes[i],
-                child: Align(
-                  alignment: widget.alignment,
-                  child: widget.children[i](context),
-                ),
-              ),
-            ],
-          ],
+            return Flex(
+              direction: _isHorizontal ? Axis.horizontal : Axis.vertical,
+              crossAxisAlignment: _crossAxisAlignment,
+              children: [
+                for (int i = 0; i < panes.length; i++) ...[
+                  if (i > 0) _buildDivider(context, i - 1, sizes),
+                  SizedBox(
+                    width: _isHorizontal ? sizes[i] : null,
+                    height: _isHorizontal ? null : sizes[i],
+                    child: panes[i],
+                  ),
+                ],
+              ],
+            );
+          },
         );
       },
     );
@@ -146,14 +161,12 @@ class _ResizableColumnsState extends State<ResizableColumns> {
     final startSizes = _dragStartSizes ??= sizes;
     _dragOffset += delta;
 
-    setState(() {
-      _weights = movePaneDivider(
-        startSizes,
-        index: dividerIndex,
-        delta: _dragOffset,
-        minSize: widget.minChildSize,
-      );
-    });
+    _weights.value = movePaneDivider(
+      startSizes,
+      index: dividerIndex,
+      delta: _dragOffset,
+      minSize: widget.minChildSize,
+    );
   }
 
   void _endDrag() {

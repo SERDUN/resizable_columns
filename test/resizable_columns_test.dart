@@ -433,6 +433,80 @@ void main() {
     });
   });
 
+  group('pane rebuilds', () {
+    late int builds;
+
+    ResizableColumns counted() {
+      Widget pane(BuildContext context) {
+        builds++;
+        return const SizedBox.expand();
+      }
+
+      return ResizableColumns(
+        orientation: ResizableOrientation.horizontal,
+        dividerThickness: 10,
+        children: [pane, pane, pane],
+      );
+    }
+
+    setUp(() => builds = 0);
+
+    testWidgets('builds every pane once', (tester) async {
+      await tester.pumpWidget(_host(counted()));
+
+      expect(builds, 3);
+    });
+
+    testWidgets('does not rebuild the panes during a drag', (tester) async {
+      await tester.pumpWidget(_host(counted()));
+      builds = 0;
+
+      final gesture = await tester.startGesture(const Offset(198, 150));
+      for (int i = 0; i < 20; i++) {
+        await gesture.moveBy(const Offset(2, 0));
+        await tester.pump();
+      }
+      await gesture.up();
+
+      expect(builds, 0);
+    });
+
+    testWidgets('does not rebuild the panes when the space changes', (tester) async {
+      final columns = counted();
+      await tester.pumpWidget(_host(columns));
+      builds = 0;
+
+      await tester.pumpWidget(_host(columns, size: const Size(400, 300)));
+
+      expect(builds, 0);
+    });
+
+    testWidgets('rebuilds the panes when the widget is rebuilt', (tester) async {
+      await tester.pumpWidget(_host(counted()));
+      builds = 0;
+
+      await tester.pumpWidget(_host(counted()));
+
+      expect(builds, 3);
+    });
+
+    testWidgets('rebuilds a pane when something it depends on changes', (tester) async {
+      final columns = ResizableColumns(
+        orientation: ResizableOrientation.horizontal,
+        children: [
+          (context) => Text('${Directionality.of(context)}', textDirection: TextDirection.ltr),
+          (context) => const SizedBox(),
+        ],
+      );
+      await tester.pumpWidget(_host(columns));
+      expect(find.text('TextDirection.ltr'), findsOneWidget);
+
+      await tester.pumpWidget(_host(columns, textDirection: TextDirection.rtl));
+
+      expect(find.text('TextDirection.rtl'), findsOneWidget);
+    });
+  });
+
   group('parent changes', () {
     testWidgets('keeps minChildSize when the space shrinks', (tester) async {
       await tester.pumpWidget(_host(_columns(2, initialSizes: [100, 500]), size: const Size(610, 300)));
