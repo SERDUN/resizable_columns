@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'pane_sizes.dart';
@@ -15,6 +16,7 @@ class ResizableColumns extends StatefulWidget {
     this.draggable = true,
     this.alignment = Alignment.topLeft,
     this.minChildSize = 50.0,
+    this.onSizesChanged,
   }) : assert(initialProportions == null || initialProportions.length == children.length,
             'initialProportions length must match the number of children');
 
@@ -27,6 +29,13 @@ class ResizableColumns extends StatefulWidget {
   final bool draggable;
   final Alignment alignment;
   final double minChildSize;
+
+  /// Called while a divider is dragged, with the size of every pane in pixels,
+  /// in the order of [children].
+  ///
+  /// It is not called for the initial layout or when the parent is resized.
+  /// Pass the sizes back as [initialSizes] to restore the layout later.
+  final ValueChanged<List<double>>? onSizesChanged;
 
   @override
   State<ResizableColumns> createState() => _ResizableColumnsState();
@@ -158,15 +167,20 @@ class _ResizableColumnsState extends State<ResizableColumns> {
   void _onDragUpdate(double delta, int dividerIndex, List<double> sizes) {
     // The move is measured from where the drag began, so a pointer that went
     // past a pane's minimum has to come back before the divider follows it.
+    final previousSizes = _dragStartSizes == null ? sizes : _weights.value;
     final startSizes = _dragStartSizes ??= sizes;
     _dragOffset += delta;
 
-    _weights.value = movePaneDivider(
+    final movedSizes = movePaneDivider(
       startSizes,
       index: dividerIndex,
       delta: _dragOffset,
       minSize: widget.minChildSize,
     );
+    if (listEquals(movedSizes, previousSizes)) return;
+
+    _weights.value = movedSizes;
+    widget.onSizesChanged?.call(List<double>.unmodifiable(movedSizes));
   }
 
   void _endDrag() {
