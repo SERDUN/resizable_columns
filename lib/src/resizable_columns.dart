@@ -4,7 +4,32 @@ import 'package:flutter/widgets.dart';
 import 'pane_sizes.dart';
 import 'resizable_orientation.dart';
 
+/// Lays its [children] out in a row or a column, with a draggable divider
+/// between every two of them.
+///
+/// The panes share the space along [orientation] and fill the other axis.
+/// Their sizes are kept as proportions, so they scale with the parent, and a
+/// pane does not shrink below [minChildSize] while the space allows it.
+///
+/// ```dart
+/// ResizableColumns(
+///   orientation: ResizableOrientation.horizontal,
+///   dividerThickness: 8.0,
+///   initialProportions: const [1, 2],
+///   children: [
+///     (context) => const Text('Navigation'),
+///     (context) => const Text('Content'),
+///   ],
+/// )
+/// ```
+///
+/// The parent has to bound the size along [orientation]. Inside a scroll view
+/// along that axis, pass [initialSizes]: they are then used as they are.
 class ResizableColumns extends StatefulWidget {
+  /// Creates a layout of resizable panes.
+  ///
+  /// At most one of [initialSizes] and [initialProportions] can be given, and
+  /// its length has to match the number of [children].
   const ResizableColumns({
     super.key,
     required this.children,
@@ -24,14 +49,47 @@ class ResizableColumns extends StatefulWidget {
         assert(initialSizes == null || initialProportions == null,
             'Provide either initialSizes or initialProportions, not both');
 
+  /// Whether the panes sit side by side or on top of each other.
   final ResizableOrientation orientation;
+
+  /// The builders of the panes, in layout order.
+  ///
+  /// They are called when this widget is rebuilt or when something a pane
+  /// depends on changes, and not while a divider is dragged. Changing their
+  /// number resets the sizes to the initial ones.
   final List<WidgetBuilder> children;
+
+  /// The size of every divider along [orientation]. It is also the width of
+  /// the area that can be dragged.
   final double dividerThickness;
+
+  /// The color of the dividers. Transparent by default.
   final Color dividerColor;
+
+  /// The share of the space each pane starts with.
+  ///
+  /// Only the ratio between the values matters: `[1, 2, 1]` gives the middle
+  /// pane half of the space. Read once, when the widget is first built or
+  /// when the number of [children] changes.
   final List<double>? initialProportions;
+
+  /// The size in pixels each pane starts with.
+  ///
+  /// Sizes that do not add up to the available space are scaled to fill it.
+  /// Read once, when the widget is first built or when the number of
+  /// [children] changes.
   final List<double>? initialSizes;
+
+  /// Whether the dividers can be dragged.
   final bool draggable;
+
+  /// How each child is aligned within its pane.
   final Alignment alignment;
+
+  /// The size below which a pane is not shrunk.
+  ///
+  /// When the space cannot hold every pane at this size, the panes share it
+  /// equally instead.
   final double minChildSize;
 
   /// Called while a divider is dragged, with the size of every pane in pixels,

@@ -15,6 +15,7 @@ interactive UIs that require adjustable panel sizes.
 - **Customizable dividers:** set the thickness and the color of the dividers.
 - **Alignment:** align each child within its pane.
 - **Responsive:** panes keep their proportions when the parent is resized.
+- **Saving and restoring:** `onSizesChanged` reports the pane sizes while a divider is dragged.
 - **Right-to-left aware:** dividers follow the pointer in right-to-left layouts.
 
 ## Installation
@@ -157,7 +158,9 @@ const ResizableColumns({
   panes share it equally.
 - **A child gets the constraints of its pane.** A child larger than its pane is shrunk to fit. To keep its size and
   clip it instead, wrap it in `ClipRect` and `OverflowBox`, or make it scrollable.
-- **Panes are not rebuilt while dragging.** The builders run when `ResizableColumns` itself is rebuilt.
+- **Panes are not rebuilt while dragging.** The builders run when `ResizableColumns` itself is rebuilt or when
+  something a pane depends on changes.
+- **Initial values are read once.** A later change of `initialSizes` or `initialProportions` does not move the panes.
 - **Changing the number of children** resets the sizes to the initial ones.
 - **An unbounded parent needs `initialSizes`.** Inside a scroll view along the orientation there is no space to share,
   so the sizes are taken from `initialSizes` as they are.
