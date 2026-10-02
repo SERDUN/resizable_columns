@@ -24,7 +24,7 @@ Add the following line to your `pubspec.yaml` under dependencies:
 
 ```yaml
 dependencies:
-  resizable_columns: ^0.0.2
+  resizable_columns: ^0.1.0
 ```
 
 Then, run:
