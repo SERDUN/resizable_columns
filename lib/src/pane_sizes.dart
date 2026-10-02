@@ -50,24 +50,37 @@ List<double> fitPaneSizes(
   return sizes;
 }
 
-/// Moves the divider after the pane at [index] by [delta], taking the space
-/// from one neighbour and giving it to the other.
+/// Moves the divider after the pane at [index] by [delta]: the pane the
+/// divider moves away from grows, and the space comes from the other side.
 ///
-/// The move stops where a neighbour would drop below [minSize]. A neighbour
-/// that is already below it is not shrunk any further.
+/// Without [push] only the pane next to the divider gives space, and the move
+/// stops when that pane reaches [minSize]. With [push] the panes behind it
+/// give space as well, one after another, each down to [minSize].
+///
+/// A pane that is already below [minSize] is not shrunk any further.
 List<double> movePaneDivider(
   List<double> sizes, {
   required int index,
   required double delta,
   required double minSize,
+  bool push = false,
 }) {
-  final lower = -math.max(0.0, sizes[index] - minSize);
-  final upper = math.max(0.0, sizes[index + 1] - minSize);
-  final applied = delta.clamp(lower, upper);
+  final moved = List<double>.of(sizes);
+  final forward = delta > 0;
+  final growing = forward ? index : index + 1;
+  final last = push ? (forward ? sizes.length - 1 : 0) : (forward ? index + 1 : index);
+  final step = forward ? 1 : -1;
 
-  return List<double>.of(sizes)
-    ..[index] += applied
-    ..[index + 1] -= applied;
+  double remaining = delta.abs();
+  for (int i = forward ? index + 1 : index; remaining > 0; i += step) {
+    final taken = math.min(remaining, math.max(0.0, moved[i] - minSize));
+    moved[i] -= taken;
+    moved[growing] += taken;
+    remaining -= taken;
+    if (i == last) break;
+  }
+
+  return moved;
 }
 
 double _sanitize(double weight) => weight.isFinite && weight > 0 ? weight : 0.0;

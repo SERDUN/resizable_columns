@@ -2,6 +2,8 @@
 
 - Added `onSizesChanged` to report the pane sizes while a divider is dragged, so a layout can be saved and restored
   through `initialSizes`.
+- Added `dragMode`. With `ResizableDragMode.push` a divider goes past a pane that is at its minimum size and shrinks
+  the panes further along.
 - Added `dividerHitSize`. A divider can now be dragged by a 12 px area centered on it, which lies over the edges of
   the panes and does not change the layout. Before, only the divider itself could be dragged.
 - Panes are no longer rebuilt while a divider is dragged or when the parent is resized.
