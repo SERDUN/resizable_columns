@@ -1,5 +1,5 @@
 name: resizable_columns_example
-description: "Demonstrates how to use the resizable_columns plugin."
+description: "Demonstrates how to use the resizable_columns package."
 
 environment:
   sdk: ^3.5.3
