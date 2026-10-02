@@ -143,7 +143,7 @@ const ResizableColumns({
 | `dividerThickness` | The thickness of the dividers between panes. |
 | `dividerColor` | The color of the dividers. Transparent by default. |
 | `initialProportions` | The initial share of the space for each pane. The length must match the number of children. |
-| `initialSizes` | The initial size of each pane in pixels. Takes precedence over `initialProportions`. |
+| `initialSizes` | The initial size of each pane in pixels. The length must match the number of children. Cannot be combined with `initialProportions`. |
 | `draggable` | Whether the dividers can be dragged. |
 | `alignment` | Alignment of each child within its pane. |
 | `minChildSize` | The minimum size a pane can shrink to. |

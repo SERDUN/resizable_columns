@@ -99,24 +99,31 @@ void main() {
       expect(_widths(tester, 2), _closeToAll([200, 400]));
     });
 
-    testWidgets('prefers initialSizes over initialProportions', (tester) async {
-      await tester.pumpWidget(
-        _host(_columns(2, dividerThickness: 0, initialSizes: [150, 450], initialProportions: [1, 1])),
-      );
-
-      expect(_widths(tester, 2), _closeToAll([150, 450]));
-    });
-
-    testWidgets('ignores initialSizes of the wrong length', (tester) async {
-      await tester.pumpWidget(
-        _host(_columns(2, dividerThickness: 0, initialSizes: [100, 200, 300], initialProportions: [1, 3])),
-      );
-
-      expect(_widths(tester, 2), _closeToAll([150, 450]));
-    });
+    Matcher throwsAssertionMentioning(String text) {
+      return throwsA(isAssertionError.having((e) => e.message, 'message', contains(text)));
+    }
 
     testWidgets('rejects initialProportions of the wrong length', (tester) async {
-      expect(() => _columns(2, initialProportions: [1, 2, 3]), throwsAssertionError);
+      expect(() => _columns(2, initialProportions: [1, 2, 3]), throwsAssertionMentioning('initialProportions length'));
+      expect(() => _columns(2, initialProportions: [1]), throwsAssertionMentioning('initialProportions length'));
+    });
+
+    testWidgets('rejects initialSizes of the wrong length', (tester) async {
+      expect(() => _columns(2, initialSizes: [100, 200, 300]), throwsAssertionMentioning('initialSizes length'));
+      expect(() => _columns(2, initialSizes: [100]), throwsAssertionMentioning('initialSizes length'));
+    });
+
+    testWidgets('rejects initialSizes together with initialProportions', (tester) async {
+      expect(
+        () => _columns(2, initialSizes: [150, 450], initialProportions: [1, 1]),
+        throwsAssertionMentioning('either initialSizes or initialProportions'),
+      );
+    });
+
+    testWidgets('accepts empty initial lists for no children', (tester) async {
+      await tester.pumpWidget(_host(_columns(0, initialSizes: [])));
+
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('raises a pane to minChildSize', (tester) async {
