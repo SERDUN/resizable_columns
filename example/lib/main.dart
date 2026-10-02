@@ -18,6 +18,7 @@ class MyApp extends StatelessWidget {
           dividerThickness: 8.0,
           initialProportions: const [1, 1, 1, 1],
           minChildSize: 100.0,
+          // A divider that reaches a pane's minimum goes on to shrink the next ones.
           dragMode: ResizableDragMode.push,
           children: [
             // Fixed width and height.
