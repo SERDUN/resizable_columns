@@ -175,7 +175,12 @@ enum ResizableOrientation {
 
 The [example](https://github.com/SERDUN/resizable_columns/tree/master/example) app shows four columns with different
 content: a fixed-size box, a nested vertical layout with scrolling lists, a fixed-width list, and a child larger than
-its pane.
+its pane. Run it in Chrome:
+
+```sh
+cd example
+flutter run -d chrome
+```
 
 ## Contributing
 
