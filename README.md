@@ -94,6 +94,26 @@ ResizableColumns(
 );
 ```
 
+### Saving and restoring sizes
+
+`onSizesChanged` reports the size of every pane in pixels while a divider is dragged. Keep the last value and pass it
+back as `initialSizes` to restore the layout:
+
+```dart
+ResizableColumns(
+  orientation: ResizableOrientation.horizontal,
+  initialSizes: savedSizes,
+  onSizesChanged: (sizes) => savedSizes = sizes,
+  children: [
+    (context) => Container(color: Colors.red),
+    (context) => Container(color: Colors.blue),
+  ],
+);
+```
+
+The callback is not called for the initial layout or when the parent is resized. Restored sizes are scaled to the
+space available, so the layout keeps its proportions in a window of a different size.
+
 ## API reference
 
 ### ResizableColumns
@@ -112,6 +132,7 @@ const ResizableColumns({
   this.draggable = true,
   this.alignment = Alignment.topLeft,
   this.minChildSize = 50.0,
+  this.onSizesChanged,
 })
 ```
 
@@ -126,6 +147,7 @@ const ResizableColumns({
 | `draggable` | Whether the dividers can be dragged. |
 | `alignment` | Alignment of each child within its pane. |
 | `minChildSize` | The minimum size a pane can shrink to. |
+| `onSizesChanged` | Called while a divider is dragged, with the size of every pane in pixels. |
 
 ### Behavior
 

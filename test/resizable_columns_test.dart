@@ -433,6 +433,171 @@ void main() {
     });
   });
 
+  group('onSizesChanged', () {
+    late List<List<double>> reported;
+
+    ResizableColumns observed(
+      int count, {
+      ResizableOrientation orientation = ResizableOrientation.horizontal,
+      bool draggable = true,
+      List<double>? initialSizes,
+    }) {
+      return ResizableColumns(
+        orientation: orientation,
+        dividerThickness: 10,
+        minChildSize: 100,
+        draggable: draggable,
+        initialSizes: initialSizes,
+        onSizesChanged: reported.add,
+        children: _panes(count),
+      );
+    }
+
+    setUp(() => reported = []);
+
+    testWidgets('reports the size of every pane after a drag', (tester) async {
+      await tester.pumpWidget(_host(observed(2)));
+
+      await tester.dragFrom(const Offset(300, 150), const Offset(60, 0));
+      await tester.pump();
+
+      expect(reported.last, _closeToAll([355, 235]));
+      expect(reported.last, _closeToAll(_widths(tester, 2)));
+    });
+
+    testWidgets('reports every move of a drag', (tester) async {
+      await tester.pumpWidget(_host(observed(2)));
+
+      final gesture = await tester.startGesture(const Offset(300, 150));
+      await gesture.moveBy(const Offset(10, 0));
+      await gesture.moveBy(const Offset(10, 0));
+      await gesture.moveBy(const Offset(-5, 0));
+      await gesture.up();
+
+      expect(reported, hasLength(3));
+      expect(reported[0], _closeToAll([305, 285]));
+      expect(reported[1], _closeToAll([315, 275]));
+      expect(reported[2], _closeToAll([310, 280]));
+    });
+
+    testWidgets('reports all panes in the order of children', (tester) async {
+      await tester.pumpWidget(_host(observed(3)));
+
+      await tester.dragFrom(const Offset(400, 150), const Offset(40, 0));
+      await tester.pump();
+
+      expect(reported.last, _closeToAll([580 / 3, 580 / 3 + 40, 580 / 3 - 40]));
+    });
+
+    testWidgets('keeps the order of children in a right-to-left layout', (tester) async {
+      await tester.pumpWidget(_host(observed(2), textDirection: TextDirection.rtl));
+
+      await tester.dragFrom(const Offset(300, 150), const Offset(60, 0));
+      await tester.pump();
+
+      expect(reported.last, _closeToAll([235, 355]));
+    });
+
+    testWidgets('reports heights in vertical orientation', (tester) async {
+      await tester.pumpWidget(
+        _host(observed(2, orientation: ResizableOrientation.vertical), size: const Size(300, 600)),
+      );
+
+      await tester.dragFrom(const Offset(150, 300), const Offset(0, 60));
+      await tester.pump();
+
+      expect(reported.last, _closeToAll([355, 235]));
+    });
+
+    testWidgets('is silent while the divider rests against a limit', (tester) async {
+      await tester.pumpWidget(_host(observed(2)));
+
+      final gesture = await tester.startGesture(const Offset(300, 150));
+      await gesture.moveBy(const Offset(250, 0));
+      await gesture.moveBy(const Offset(20, 0));
+      await gesture.moveBy(const Offset(-20, 0));
+      await gesture.up();
+
+      expect(reported, hasLength(1));
+      expect(reported.single, _closeToAll([490, 100]));
+    });
+
+    testWidgets('is silent when a drag cannot move the divider at all', (tester) async {
+      await tester.pumpWidget(_host(observed(2, initialSizes: [100, 490])));
+
+      await tester.dragFrom(const Offset(105, 150), const Offset(-40, 0));
+      await tester.pump();
+
+      expect(reported, isEmpty);
+    });
+
+    testWidgets('is silent for the initial layout and a resize of the parent', (tester) async {
+      final columns = observed(2);
+      await tester.pumpWidget(_host(columns));
+      await tester.pumpWidget(_host(columns, size: const Size(400, 300)));
+
+      expect(reported, isEmpty);
+    });
+
+    testWidgets('is silent when not draggable', (tester) async {
+      await tester.pumpWidget(_host(observed(2, draggable: false)));
+
+      await tester.dragFrom(const Offset(300, 150), const Offset(60, 0));
+      await tester.pump();
+
+      expect(reported, isEmpty);
+    });
+
+    testWidgets('reports a list that cannot be modified', (tester) async {
+      await tester.pumpWidget(_host(observed(2)));
+
+      await tester.dragFrom(const Offset(300, 150), const Offset(60, 0));
+      await tester.pump();
+
+      expect(() => reported.last[0] = 0, throwsUnsupportedError);
+      expect(_widths(tester, 2), _closeToAll([355, 235]));
+    });
+
+    testWidgets('restores the layout through initialSizes', (tester) async {
+      await tester.pumpWidget(_host(observed(3)));
+      await tester.dragFrom(const Offset(400, 150), const Offset(40, 0));
+      await tester.pump();
+      final saved = reported.last;
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(_host(observed(3, initialSizes: saved)));
+
+      expect(_widths(tester, 3), _closeToAll(saved));
+    });
+
+    testWidgets('can rebuild the parent from the callback', (tester) async {
+      List<double>? sizes;
+      await tester.pumpWidget(
+        _host(
+          StatefulBuilder(
+            builder: (context, setState) => ResizableColumns(
+              orientation: ResizableOrientation.horizontal,
+              dividerThickness: 10,
+              minChildSize: 100,
+              onSizesChanged: (value) => setState(() => sizes = value),
+              children: [
+                (context) => Text('${sizes?.first.round()}', textDirection: TextDirection.ltr),
+                (context) => const SizedBox.expand(key: ValueKey('pane1')),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      await tester.dragFrom(const Offset(300, 150), const Offset(60, 0));
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('355'), findsOneWidget);
+      expect(_pane(tester, 1).width, closeTo(235, 1e-6));
+    });
+  });
+
   group('pane rebuilds', () {
     late int builds;
 
