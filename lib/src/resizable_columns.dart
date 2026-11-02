@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import 'pane_sizes.dart';
+import 'resizable_columns_controller.dart';
 import 'resizable_drag_mode.dart';
 import 'resizable_orientation.dart';
 
@@ -35,6 +36,7 @@ import 'resizable_orientation.dart';
 ///  * [dragMode], to let a divider push the panes further along.
 ///  * [dividerHitSize], to change how wide the draggable area of a divider is.
 ///  * [onSizesChanged], to save the layout and restore it with [initialSizes].
+///  * [controller], to collapse a pane and expand it again.
 class ResizableColumns extends StatefulWidget {
   /// Creates a layout of resizable panes.
   ///
@@ -54,7 +56,11 @@ class ResizableColumns extends StatefulWidget {
     this.alignment = Alignment.topLeft,
     this.minChildSize = 50.0,
     this.onSizesChanged,
-  })  : assert(initialProportions == null || initialProportions.length == children.length,
+    this.controller,
+    this.collapsedSizes,
+  })  : assert(collapsedSizes == null || collapsedSizes.length == children.length,
+            'collapsedSizes length must match the number of children'),
+        assert(initialProportions == null || initialProportions.length == children.length,
             'initialProportions length must match the number of children'),
         assert(initialSizes == null || initialSizes.length == children.length,
             'initialSizes length must match the number of children'),
@@ -120,31 +126,89 @@ class ResizableColumns extends StatefulWidget {
   ///
   /// It is not called for the initial layout or when the parent is resized.
   /// Pass the sizes back as [initialSizes] to restore the layout later.
+  ///
+  /// A collapsed pane is reported with the size it returns to when it is
+  /// expanded, not with its collapsed size. To restore a layout with collapsed
+  /// panes, pass the list as [initialSizes] and the same collapsed indexes to
+  /// the [controller]: the expanded panes come back as they were, and each
+  /// collapsed one expands to the size reported for it.
   final ValueChanged<List<double>>? onSizesChanged;
+
+  /// Collapses and expands the panes.
+  ///
+  /// When the set of collapsed panes changes, the builders in [children] run
+  /// again, so a pane can read [ResizableColumnsController.isCollapsed] and
+  /// show something smaller, such as a rail of icons, while it is collapsed.
+  ///
+  /// An expanded pane returns to the size it had when it was collapsed, and
+  /// the other expanded panes shrink in proportion to make room. When the room
+  /// is not there, it gets what is left once each of the others is at
+  /// [minChildSize]; when even that is less than [minChildSize], the expanded
+  /// panes share the space as [minChildSize] says.
+  ///
+  /// Between two expanded panes there is always one divider that can be
+  /// dragged, even with collapsed panes between them: the one right after the
+  /// first of the two. It resizes those two panes across the collapsed ones,
+  /// and the other dividers next to a collapsed pane take no drag. Drags,
+  /// [ResizableDragMode.push] included, move only expanded panes.
+  final ResizableColumnsController? controller;
+
+  /// The size along [orientation] of each pane while it is collapsed, in the
+  /// order of [children]. Without it a collapsed pane takes no space at all.
+  ///
+  /// A collapsed pane ignores [minChildSize].
+  final List<double>? collapsedSizes;
 
   @override
   State<ResizableColumns> createState() => _ResizableColumnsState();
 }
 
 class _ResizableColumnsState extends State<ResizableColumns> {
-  // Relative sizes of the panes. Pixels are derived from them on every layout,
-  // so the proportions survive a resize of the parent. A notifier rather than
-  // setState, so a drag lays the panes out again without rebuilding them.
+  // One entry per pane, in two roles that are never compared with each
+  // other. An expanded pane's weight is its share: the expanded panes split
+  // their space in proportion to these, so they follow a resize of the parent;
+  // the initial values until a divider moves, pixels after it. A collapsed
+  // pane's weight is the size in pixels it returns to when it is expanded. A
+  // notifier rather than setState, so a drag lays the panes out again without
+  // rebuilding them.
   late final ValueNotifier<List<double>> _weights;
+  bool _laidOut = false;
+
+  // The collapsed panes, the ones expanded since the last layout, and that
+  // layout, which a collapse reads the size to remember from.
+  Set<int> _collapsed = const {};
+  final Set<int> _expanding = {};
+  List<double>? _lastSizes;
+
+  // Bumped when the collapsed panes change, so that a drag update arriving
+  // from a layout that no longer exists is dropped.
+  int _layoutGeneration = 0;
 
   List<double>? _dragStartSizes;
+  List<double>? _dragLastMoved;
   double _dragOffset = 0.0;
 
   bool get _isHorizontal => widget.orientation == ResizableOrientation.horizontal;
+
+  Set<int> _collapsedOf(ResizableColumnsController? controller) {
+    if (controller == null) return const {};
+    return {
+      for (final index in controller.collapsed)
+        if (index >= 0 && index < widget.children.length) index
+    };
+  }
 
   @override
   void initState() {
     super.initState();
     _weights = ValueNotifier<List<double>>(_initialWeights());
+    _collapsed = _collapsedOf(widget.controller);
+    widget.controller?.addListener(_onCollapsedChanged);
   }
 
   @override
   void dispose() {
+    widget.controller?.removeListener(_onCollapsedChanged);
     _weights.dispose();
     super.dispose();
   }
@@ -154,9 +218,96 @@ class _ResizableColumnsState extends State<ResizableColumns> {
     super.didUpdateWidget(oldWidget);
     if (widget.children.length != _weights.value.length) {
       _weights.value = _initialWeights();
+      _laidOut = false;
+      _expanding.clear();
+      _lastSizes = null;
+      _collapsed = _collapsedOf(widget.controller);
+      _layoutGeneration++;
       _endDrag();
     }
+    if (widget.controller != oldWidget.controller) {
+      oldWidget.controller?.removeListener(_onCollapsedChanged);
+      widget.controller?.addListener(_onCollapsedChanged);
+      _applyCollapsed(_collapsedOf(widget.controller));
+    }
   }
+
+  void _onCollapsedChanged() {
+    final collapsed = _collapsedOf(widget.controller);
+    if (setEquals(collapsed, _collapsed)) return;
+    setState(() => _applyCollapsed(collapsed));
+  }
+
+  void _applyCollapsed(Set<int> collapsed) {
+    if (setEquals(collapsed, _collapsed)) return;
+    final sizes = _lastSizes;
+    for (final index in collapsed.difference(_collapsed)) {
+      _expanding.remove(index);
+      // Remember the size it has now. Before the first layout its weight is
+      // still an initial value, which the first layout turns into pixels.
+      if (sizes != null && index < sizes.length) _weights.value[index] = sizes[index];
+    }
+    _expanding.addAll(_collapsed.difference(collapsed));
+    _collapsed = collapsed;
+    _layoutGeneration++;
+    _endDrag();
+  }
+
+  /// Keeps the weights of collapsed panes in pixels for [available], the one
+  /// place weights change outside a drag. Writes in place: it runs during
+  /// layout, where the panes are about to be laid out from these weights.
+  void _normalizeWeights(double available) {
+    final weights = _weights.value;
+    final minSize = widget.minChildSize;
+
+    if (!_laidOut) {
+      _laidOut = true;
+      // A pane collapsed from the start remembers the size it would have
+      // expanded, or its initialSizes entry as it is: that is a size the owner
+      // chose, not a share. The expanded panes keep their initial weights. A
+      // pane expanded before any layout is simply expanded.
+      _expanding.clear();
+      if (available.isFinite && widget.initialSizes == null && _collapsed.isNotEmpty) {
+        final whole = fitPaneSizes(weights, available: available, minSize: minSize);
+        for (final i in _collapsed) {
+          weights[i] = whole[i];
+        }
+      }
+      return;
+    }
+
+    _expanding.removeWhere((index) => index >= weights.length || _collapsed.contains(index));
+    if (_expanding.isEmpty || !available.isFinite) {
+      _expanding.clear();
+      return;
+    }
+
+    // Each pane that expands asks for its remembered size. The others shrink
+    // in proportion, each down to the minimum at most.
+    final expanded = expandedIndexes(weights.length, _collapsed);
+    final space = available -
+        _collapsed.fold(0.0, (sum, i) => sum + collapsedPaneSize(widget.collapsedSizes, i)) *
+            collapsedScale(widget.collapsedSizes, _collapsed, available);
+    final staying = [
+      for (final i in expanded)
+        if (!_expanding.contains(i)) i
+    ];
+    final asked = _expanding.fold(0.0, (sum, i) => sum + _sanitizeSize(weights[i]));
+    final room = math.max(0.0, space - minSize * staying.length);
+    final scale = asked > room && asked > 0 ? room / asked : 1.0;
+    for (final i in _expanding) {
+      weights[i] = _sanitizeSize(weights[i]) * scale;
+    }
+    final given = _expanding.fold(0.0, (sum, i) => sum + weights[i]);
+    final rest =
+        fitPaneSizes([for (final i in staying) weights[i]], available: math.max(0.0, space - given), minSize: minSize);
+    for (int k = 0; k < staying.length; k++) {
+      weights[staying[k]] = rest[k];
+    }
+    _expanding.clear();
+  }
+
+  static double _sanitizeSize(double size) => size.isFinite && size > 0 ? size : 0.0;
 
   List<double> _initialWeights() {
     final count = widget.children.length;
@@ -179,6 +330,13 @@ class _ResizableColumnsState extends State<ResizableColumns> {
     return CrossAxisAlignment.center;
   }
 
+  /// The dividers that take a drag: one after every expanded pane that has
+  /// another expanded pane somewhere after it.
+  List<int> _draggableDividers() {
+    final expanded = expandedIndexes(widget.children.length, _collapsed);
+    return [for (int k = 0; k < expanded.length - 1; k++) expanded[k]];
+  }
+
   @override
   Widget build(BuildContext context) {
     // Built here and not below, so that only this widget's own rebuild calls
@@ -196,7 +354,15 @@ class _ResizableColumnsState extends State<ResizableColumns> {
         return ValueListenableBuilder<List<double>>(
           valueListenable: _weights,
           builder: (context, weights, _) {
-            final sizes = fitPaneSizes(weights, available: availableSize, minSize: widget.minChildSize);
+            _normalizeWeights(availableSize);
+            final sizes = layoutPaneSizes(
+              weights,
+              available: availableSize,
+              minSize: widget.minChildSize,
+              collapsed: _collapsed,
+              collapsedSizes: widget.collapsedSizes,
+            );
+            _lastSizes = sizes;
 
             final flex = Flex(
               direction: _isHorizontal ? Axis.horizontal : Axis.vertical,
@@ -221,11 +387,13 @@ class _ResizableColumnsState extends State<ResizableColumns> {
 
             // The drag areas lie over the panes instead of between them, so
             // they can be wider than the dividers without moving anything.
+            // Keyed by divider, so a drag in progress stays with its divider
+            // when the set of draggable dividers changes.
             return Stack(
               fit: StackFit.passthrough,
               children: [
                 flex,
-                for (int i = 0; i < panes.length - 1; i++) _buildDragArea(context, i, sizes),
+                for (final divider in _draggableDividers()) _buildDragArea(context, divider, sizes),
               ],
             );
           },
@@ -238,6 +406,7 @@ class _ResizableColumnsState extends State<ResizableColumns> {
     final isRtl = _isHorizontal && Directionality.maybeOf(context) == TextDirection.rtl;
     final thickness = widget.dividerThickness;
     final extent = math.max(widget.dividerHitSize, thickness);
+    final generation = _layoutGeneration;
 
     double dividerStart = thickness * dividerIndex;
     for (int i = 0; i <= dividerIndex; i++) {
@@ -247,7 +416,7 @@ class _ResizableColumnsState extends State<ResizableColumns> {
 
     void onUpdate(DragUpdateDetails details) {
       final delta = _isHorizontal ? details.delta.dx : details.delta.dy;
-      _onDragUpdate(isRtl ? -delta : delta, dividerIndex, sizes);
+      _onDragUpdate(isRtl ? -delta : delta, dividerIndex, sizes, generation);
     }
 
     // Translucent, so a tap on the edge of a pane still reaches the pane. The
@@ -268,33 +437,53 @@ class _ResizableColumnsState extends State<ResizableColumns> {
       ),
     );
 
+    final key = ValueKey<int>(dividerIndex);
     return _isHorizontal
-        ? PositionedDirectional(start: start, top: 0, bottom: 0, width: extent, child: area)
-        : Positioned(top: start, left: 0, right: 0, height: extent, child: area);
+        ? PositionedDirectional(key: key, start: start, top: 0, bottom: 0, width: extent, child: area)
+        : Positioned(key: key, top: start, left: 0, right: 0, height: extent, child: area);
   }
 
-  void _onDragUpdate(double delta, int dividerIndex, List<double> sizes) {
+  void _onDragUpdate(double delta, int dividerIndex, List<double> sizes, int generation) {
+    // An update from before the collapsed panes changed carries a layout that
+    // is gone; the next one comes from the new layout.
+    if (generation != _layoutGeneration || sizes.length != _weights.value.length) return;
+
+    final expanded = expandedIndexes(sizes.length, _collapsed);
+    final position = expanded.indexOf(dividerIndex);
+    if (position < 0 || position + 1 >= expanded.length) {
+      _endDrag();
+      return;
+    }
+
     // The move is measured from where the drag began, so a pointer that went
     // past a pane's minimum has to come back before the divider follows it.
-    final previousSizes = _dragStartSizes == null ? sizes : _weights.value;
-    final startSizes = _dragStartSizes ??= sizes;
+    // Only the expanded panes take part: the divider moves the two expanded
+    // panes on either side of it, across any collapsed ones between them.
+    final startSizes = _dragStartSizes ??= [for (final i in expanded) sizes[i]];
+    final previous = _dragLastMoved ?? startSizes;
     _dragOffset += delta;
 
-    final movedSizes = movePaneDivider(
+    final moved = movePaneDivider(
       startSizes,
-      index: dividerIndex,
+      index: position,
       delta: _dragOffset,
       minSize: widget.minChildSize,
       push: widget.dragMode == ResizableDragMode.push,
     );
-    if (listEquals(movedSizes, previousSizes)) return;
+    if (listEquals(moved, previous)) return;
+    _dragLastMoved = moved;
 
-    _weights.value = movedSizes;
-    widget.onSizesChanged?.call(List<double>.unmodifiable(movedSizes));
+    final weights = List<double>.of(_weights.value);
+    for (int k = 0; k < expanded.length; k++) {
+      weights[expanded[k]] = moved[k];
+    }
+    _weights.value = weights;
+    widget.onSizesChanged?.call(List<double>.unmodifiable(weights));
   }
 
   void _endDrag() {
     _dragStartSizes = null;
+    _dragLastMoved = null;
     _dragOffset = 0.0;
   }
 }

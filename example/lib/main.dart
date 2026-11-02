@@ -4,6 +4,9 @@ import 'package:resizable_columns/resizable_columns.dart';
 
 void main() => runApp(const MyApp());
 
+// Collapses the green pane to a 40 px rail from the app bar.
+final _controller = ResizableColumnsController();
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -12,7 +15,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Resizable Columns Demo',
       home: Scaffold(
-        appBar: AppBar(title: const Text('Resizable Columns')),
+        appBar: AppBar(
+          title: const Text('Resizable Columns'),
+          actions: [
+            IconButton(
+              tooltip: 'Collapse or expand the green pane',
+              icon: const Icon(Icons.view_sidebar_outlined),
+              onPressed: () => _controller.toggle(2),
+            ),
+          ],
+        ),
         body: ResizableColumns(
           orientation: ResizableOrientation.horizontal,
           dividerThickness: 8.0,
@@ -20,6 +32,8 @@ class MyApp extends StatelessWidget {
           minChildSize: 100.0,
           // A divider that reaches a pane's minimum goes on to shrink the next ones.
           dragMode: ResizableDragMode.push,
+          controller: _controller,
+          collapsedSizes: const [0, 0, 40, 0],
           children: [
             // Fixed width and height.
             (context) => Container(
@@ -46,11 +60,14 @@ class MyApp extends StatelessWidget {
                         ),
                   ],
                 ),
-            // Fixed width, scrolls vertically.
+            // Fixed width, scrolls vertically; a rail while collapsed.
             (context) => Container(
                   color: Colors.green,
                   alignment: Alignment.center,
-                  child: const SizedBox(width: 90, child: _Tiles(direction: Axis.vertical)),
+                  child: _controller.isCollapsed(2)
+                      ? const RotatedBox(
+                          quarterTurns: 1, child: Text('Collapsed', style: TextStyle(color: Colors.white)))
+                      : const SizedBox(width: 90, child: _Tiles(direction: Axis.vertical)),
                 ),
             // Larger than the pane in both directions: keeps its size and is clipped.
             (context) => Container(
