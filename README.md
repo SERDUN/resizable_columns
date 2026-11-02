@@ -1,43 +1,48 @@
-# ResizableColumns
+# resizable_columns
 
 [![pub package](https://img.shields.io/pub/v/resizable_columns.svg)](https://pub.dev/packages/resizable_columns)
 
-A Flutter widget that provides a flexible, resizable layout with draggable dividers. It allows you to create multi-pane
-layouts where users can resize the panes by dragging the dividers between them. Suitable for building responsive and
-interactive UIs that require adjustable panel sizes.
+A Flutter widget for the layouts of desktop and web tools - **an editor next to a live preview**, **a sidebar, a
+document and an inspector**, **a code pane over a console** - where the user drags the borders between panes and
+folds away the ones they do not need right now.
+
+`Row` with `Expanded` gives fixed shares, and a draggable split is usually two panes, a hand-written
+`GestureDetector` and a pile of edge cases: a pane squeezed to nothing, a divider that drifts off the pointer, sizes
+that jump when the window is resized, a layout that cannot be saved. This widget handles any number of panes, keeps
+them above a minimum, keeps their proportions when the window changes, and collapses a pane to nothing or to a rail
+of icons and brings it back at the size it had.
 
 ## Features
 
-- **Resizable panes:** users adjust the size of child widgets by dragging the dividers.
-- **Horizontal and vertical orientations:** panes sit side by side or on top of each other, and can be nested.
-- **Initial sizes and proportions:** set the starting size of each pane in pixels or as a share of the space.
-- **Minimum pane size:** a pane never shrinks below `minChildSize` while the space allows it.
-- **Customizable dividers:** set the thickness and the color of the dividers.
-- **Collapsible panes:** a controller collapses a pane to nothing or to a rail and expands it back to its size.
-- **Push mode:** a divider can go past a pane that is at its minimum and shrink the panes behind it.
-- **Easy to grab:** a divider can be dragged by an area wider than the divider itself.
-- **Alignment:** align each child within its pane.
-- **Responsive:** panes keep their proportions when the parent is resized.
-- **Saving and restoring:** `onSizesChanged` reports the pane sizes while a divider is dragged.
-- **Right-to-left aware:** dividers follow the pointer in right-to-left layouts.
-- **Resize cursor:** the mouse cursor changes over a divider on desktop and web.
+- **Any number of panes** - in a row or a column, nested for grids, with a draggable divider between every two.
+- **Collapsible panes** - a controller folds a pane to nothing or to a narrow rail and expands it back to exactly
+  the size it had; the toolbar button that opens a chat or an inspector is one `toggle` call.
+- **Never too small** - a pane does not shrink below its minimum while the space allows it; in push mode a divider
+  goes on past a pane at its minimum and shrinks the panes behind it.
+- **Steady under resizing** - panes keep their proportions when the window grows or shrinks, and the divider stays
+  under the pointer, right to left included.
+- **Saved and restored** - `onSizesChanged` reports every pane's size, `initialSizes` puts them back, collapsed
+  panes included.
+- **Easy to grab, cheap to drag** - the drag area is wider than the divider and takes no space; panes are not
+  rebuilt while a divider moves.
+- **Desktop and web ready** - resize cursors over dividers, transparent or colored dividers of any thickness.
+- **No dependencies** beyond Flutter itself.
+
+## Requirements
+
+- Flutter 3.24 or later.
+- Any platform Flutter runs on; the resize cursors matter on desktop and web.
 
 ## Installation
 
-Add the following line to your `pubspec.yaml` under dependencies:
-
 ```yaml
 dependencies:
-  resizable_columns: ^0.1.0
+  resizable_columns: ^0.2.0
 ```
-
-Then, run:
 
 ```sh
 flutter pub get
 ```
-
-Import the package in your Dart code:
 
 ```dart
 import 'package:resizable_columns/resizable_columns.dart';

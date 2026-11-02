@@ -1,3 +1,8 @@
+## 0.2.1
+
+- The README opens with what the widget is for and lists its features; the installation snippet names 0.2.0.
+- Topics on pub.dev: layout, split-view, resizable, panels, desktop.
+
 ## 0.2.0
 
 ### Added
