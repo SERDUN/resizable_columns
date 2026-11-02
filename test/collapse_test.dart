@@ -247,8 +247,8 @@ void main() {
       await tester.pump();
       await _drag(tester, 280, 20);
       expect(_widths(tester, 3), _closeToAll([300, 260, 40]));
-      // 280 is the weight that brings the pane back at 200 next to the others.
-      expect(reported, _closeToAll([300, 260, 280]));
+      // A collapsed pane is reported with the size it returns to.
+      expect(reported, _closeToAll([300, 260, 200]));
 
       final restored = ResizableColumnsController(collapsed: [2]);
       await tester.pumpWidget(const SizedBox());
@@ -327,8 +327,182 @@ void main() {
       expect(_widths(tester, 2), _closeToAll([300, 300]));
     });
 
+    testWidgets('expands a pane back to exactly its size when the others are pinned at the minimum', (tester) async {
+      final controller = ResizableColumnsController();
+      await tester.pumpWidget(
+        _host(_columns(3, controller: controller, initialProportions: [1, 1, 10], collapsedSizes: [0, 0, 0])),
+      );
+      expect(_widths(tester, 3), _closeToAll([50, 50, 500]));
+
+      await _drag(tester, 100, 200);
+      expect(_widths(tester, 3), _closeToAll([50, 250, 300]));
+
+      controller.collapse(2);
+      await tester.pump();
+      controller.expand(2);
+      await tester.pump();
+
+      expect(_widths(tester, 3), _closeToAll([50, 250, 300]));
+    });
+
+    testWidgets('expands a pane to its size after the parent was resized', (tester) async {
+      final controller = ResizableColumnsController();
+      await tester.pumpWidget(_host(_columns(3, controller: controller)));
+      controller.collapse(2);
+      await tester.pump();
+
+      await tester.pumpWidget(_host(_columns(3, controller: controller), size: const Size(780, 300)));
+      expect(_widths(tester, 3), _closeToAll([390, 390, 0]));
+
+      controller.expand(2);
+      await tester.pump();
+
+      expect(_widths(tester, 3), _closeToAll([290, 290, 200]));
+    });
+
+    testWidgets('expands a pane to what is left when its size does not fit', (tester) async {
+      final controller = ResizableColumnsController();
+      await tester.pumpWidget(_host(_columns(2, controller: controller, initialProportions: [1, 5])));
+      controller.collapse(1);
+      await tester.pump();
+
+      await tester.pumpWidget(_host(_columns(2, controller: controller), size: const Size(300, 300)));
+      controller.expand(1);
+      await tester.pump();
+
+      // It asks for 500; the other pane keeps its minimum of 50.
+      expect(_widths(tester, 2), _closeToAll([50, 250]));
+    });
+
+    testWidgets('resizes the panes on either side of a collapsed middle pane', (tester) async {
+      final controller = ResizableColumnsController();
+      await tester.pumpWidget(_host(_columns(3, controller: controller, collapsedSizes: [0, 56, 0])));
+
+      controller.collapse(1);
+      await tester.pump();
+      expect(_widths(tester, 3), _closeToAll([272, 56, 272]));
+
+      // The divider after the first pane moves the first and the last.
+      await _drag(tester, 272, 50);
+      expect(_widths(tester, 3), _closeToAll([322, 56, 222]));
+
+      // The divider after the collapsed pane takes no drag.
+      await _drag(tester, 378, 50);
+      expect(_widths(tester, 3), _closeToAll([322, 56, 222]));
+
+      controller.expand(1);
+      await tester.pump();
+      expect(_pane(tester, 1).width, closeTo(200, 1e-6));
+    });
+
+    testWidgets('has no drag area before a leading collapsed pane', (tester) async {
+      final controller = ResizableColumnsController(collapsed: [0]);
+      await tester.pumpWidget(_host(_columns(3, controller: controller, collapsedSizes: [40, 0, 0])));
+
+      await _drag(tester, 40, 100);
+
+      expect(_widths(tester, 3), _closeToAll([40, 280, 280]));
+    });
+
+    testWidgets('drops a drag update that arrives after a collapse and before the rebuild', (tester) async {
+      final controller = ResizableColumnsController();
+      await tester.pumpWidget(_host(_columns(3, controller: controller)));
+
+      final gesture = await tester.startGesture(const Offset(400, 150));
+      await gesture.moveBy(const Offset(-20, 0));
+      await tester.pump();
+      controller.collapse(2);
+      await gesture.moveBy(const Offset(-20, 0));
+      expect(tester.takeException(), isNull);
+      await gesture.up();
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(_pane(tester, 2).width, 0);
+    });
+
+    testWidgets('keeps a drag on its divider when the draggable dividers change', (tester) async {
+      final controller = ResizableColumnsController();
+      await tester.pumpWidget(_host(_columns(4, controller: controller)));
+      expect(_widths(tester, 4), _closeToAll([150, 150, 150, 150]));
+
+      // The last divider, at 450.
+      final gesture = await tester.startGesture(const Offset(450, 150));
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump();
+
+      // The first divider loses its drag area, which shifts the others.
+      controller.collapse(0);
+      await tester.pump();
+      await gesture.moveBy(const Offset(-30, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      final widths = _widths(tester, 4);
+      expect(widths[0], 0);
+      // Only the last two panes moved against each other.
+      expect(widths[1], closeTo(200, 1e-6));
+      expect(widths[2] + widths[3], closeTo(400, 1e-6));
+      expect(widths[2], lessThan(200));
+    });
+
+    testWidgets('ignores a negative index', (tester) async {
+      final controller = ResizableColumnsController();
+      await tester.pumpWidget(_host(_columns(2, controller: controller)));
+
+      expect(() => controller.collapse(-1), throwsAssertionError);
+      expect(controller.collapsed, isEmpty);
+    });
+
+    testWidgets('does not rebuild when the change does not reach a pane', (tester) async {
+      final controller = ResizableColumnsController();
+      var builds = 0;
+      await tester.pumpWidget(
+        _host(
+          _columns(
+            2,
+            controller: controller,
+            children: [
+              (context) {
+                builds++;
+                return const SizedBox.expand();
+              },
+              (context) => const SizedBox.expand(),
+            ],
+          ),
+        ),
+      );
+      expect(builds, 1);
+
+      controller.collapse(7);
+      await tester.pump();
+
+      expect(builds, 1);
+    });
+
     testWidgets('rejects collapsedSizes of the wrong length', (tester) async {
       expect(() => _columns(2, collapsedSizes: [10]), throwsAssertionError);
+    });
+  });
+
+  group('drag without movement', () {
+    testWidgets('keeps the initial proportions when a drag does not move the divider', (tester) async {
+      List<double>? reported;
+      await tester.pumpWidget(
+        _host(_columns(2, initialProportions: [1, 30], onSizesChanged: (sizes) => reported = sizes)),
+      );
+      // The first pane is pinned to the minimum of 50.
+      expect(_widths(tester, 2), _closeToAll([50, 550]));
+
+      await _drag(tester, 50, -30);
+      expect(reported, isNull);
+
+      await tester.pumpWidget(
+        _host(_columns(2, initialProportions: [1, 30]), size: const Size(780, 300)),
+      );
+      // Still 1 to 30, so still pinned; weights rewritten to 50 and 550 would give 65.
+      expect(_widths(tester, 2), _closeToAll([50, 730]));
     });
   });
 }

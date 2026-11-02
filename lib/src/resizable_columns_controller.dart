@@ -17,9 +17,15 @@ import 'package:flutter/foundation.dart';
 /// the panes change. An index with no pane behind it is ignored by the layout.
 class ResizableColumnsController extends ChangeNotifier {
   /// Creates a controller with the panes at the [collapsed] indexes collapsed.
-  ResizableColumnsController({Iterable<int> collapsed = const []}) : _collapsed = {...collapsed} {
-    assert(_collapsed.every((index) => index >= 0), 'Pane indexes cannot be negative');
-  }
+  ///
+  /// Negative indexes are a mistake: they fail an assert in debug builds and
+  /// are dropped in release builds.
+  ResizableColumnsController({Iterable<int> collapsed = const []})
+      : assert(collapsed.every((index) => index >= 0), 'Pane indexes cannot be negative'),
+        _collapsed = {
+          for (final index in collapsed)
+            if (index >= 0) index
+        };
 
   final Set<int> _collapsed;
 
@@ -39,9 +45,11 @@ class ResizableColumnsController extends ChangeNotifier {
   void toggle(int index) => setCollapsed(index, !isCollapsed(index));
 
   /// Collapses or expands the pane at [index]. Listeners are notified only
-  /// when this changes something.
+  /// when this changes something. A negative [index] fails an assert in debug
+  /// builds and is ignored in release builds.
   void setCollapsed(int index, bool collapsed) {
     assert(index >= 0, 'Pane indexes cannot be negative');
+    if (index < 0) return;
     final changed = collapsed ? _collapsed.add(index) : _collapsed.remove(index);
     if (changed) notifyListeners();
   }

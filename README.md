@@ -13,6 +13,7 @@ interactive UIs that require adjustable panel sizes.
 - **Initial sizes and proportions:** set the starting size of each pane in pixels or as a share of the space.
 - **Minimum pane size:** a pane never shrinks below `minChildSize` while the space allows it.
 - **Customizable dividers:** set the thickness and the color of the dividers.
+- **Collapsible panes:** a controller collapses a pane to nothing or to a rail and expands it back to its size.
 - **Push mode:** a divider can go past a pane that is at its minimum and shrink the panes behind it.
 - **Easy to grab:** a divider can be dragged by an area wider than the divider itself.
 - **Alignment:** align each child within its pane.
@@ -142,10 +143,11 @@ space available, so the layout keeps its proportions in a window of a different 
 ### Collapsing panes
 
 A `ResizableColumnsController` collapses a pane and expands it again. A collapsed pane shrinks to its entry in
-`collapsedSizes` (nothing at all without one), the other panes share the space it leaves in their proportions, and
-expanding it gives it back the size it had:
+`collapsedSizes` (nothing at all without one), and the other panes share the space it leaves in their proportions.
+Expanding it gives it back exactly the size it had, and the other panes shrink in proportion to make room:
 
 ```dart
+// The editor collapses to a 56 px rail, the chat disappears; the chat starts collapsed.
 final controller = ResizableColumnsController(collapsed: {2});
 
 ResizableColumns(
@@ -160,13 +162,19 @@ ResizableColumns(
 );
 
 // In a toolbar:
+IconButton(icon: const Icon(Icons.view_sidebar), onPressed: () => controller.toggle(0));
 IconButton(icon: const Icon(Icons.chat), onPressed: () => controller.toggle(2));
 ```
 
-The builders run again when the set of collapsed panes changes, so a pane can show a rail of icons instead of
-disappearing. A divider next to a collapsed pane cannot be dragged, and dragging the others moves only the expanded
-panes. `onSizesChanged` reports a collapsed pane with the weight that expands it back; pass the list as `initialSizes`
-and the same indexes to the controller to restore both.
+- **The builders run again** when the set of collapsed panes changes, so a pane can show a rail of icons instead of
+  disappearing.
+- **One handle between two expanded panes.** The divider right after an expanded pane stays draggable even when
+  collapsed panes follow it, and resizes it and the next expanded pane across them. The other dividers next to a
+  collapsed pane take no drag. Drags, push mode included, move only expanded panes.
+- **When the size does not fit** on expanding, for example after the parent shrank, the pane gets what is left once
+  each of the others is at `minChildSize`.
+- **Saving and restoring.** `onSizesChanged` reports a collapsed pane with the size it returns to. Pass the list as
+  `initialSizes` and the same indexes to the controller to restore both the layout and those sizes.
 
 ## API reference
 
@@ -207,7 +215,7 @@ const ResizableColumns({
 | `dragMode` | `ResizableDragMode.adjacent` stops at the next pane's minimum; `ResizableDragMode.push` goes on and shrinks the panes further along. |
 | `alignment` | Alignment of each child within its pane. |
 | `minChildSize` | The minimum size a pane can shrink to. |
-| `onSizesChanged` | Called while a divider is dragged, with the size of every pane in pixels. A collapsed pane is reported with the weight that expands it back. |
+| `onSizesChanged` | Called while a divider is dragged, with the size of every pane in pixels. A collapsed pane is reported with the size it returns to. |
 | `controller` | A `ResizableColumnsController` that collapses and expands panes. |
 | `collapsedSizes` | The size of each pane while it is collapsed. The length must match the number of children; 0 for every pane by default. |
 
@@ -234,7 +242,8 @@ const ResizableColumns({
 
 A `ChangeNotifier` that holds the indexes of the collapsed panes: `collapse(index)`, `expand(index)`,
 `toggle(index)`, `setCollapsed(index, collapsed)`, `isCollapsed(index)` and `collapsed`. It notifies only when
-something changes. An index with no pane behind it is ignored.
+something changes. An index with no pane behind it is ignored, and a negative one fails an assert in debug builds and
+is ignored in release builds.
 
 ### ResizableDragMode
 
