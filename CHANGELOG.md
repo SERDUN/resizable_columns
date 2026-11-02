@@ -1,3 +1,16 @@
+## 0.2.0
+
+### Added
+
+- Collapsible panes. A `ResizableColumnsController` collapses a pane and expands it again; `collapsedSizes` sets how
+  much space each one keeps while collapsed, from nothing to a rail. The other panes share the space a collapsed pane
+  leaves in their proportions, and an expanded pane gets back the size it had, after drags of the others too.
+- The builders run again when the set of collapsed panes changes, so a pane can draw itself differently while
+  collapsed.
+- A divider next to a collapsed pane cannot be dragged, and dragging moves and pushes only expanded panes.
+- `onSizesChanged` reports a collapsed pane with the weight that expands it back, so `initialSizes` and the
+  controller restore a layout with collapsed panes.
+
 ## 0.1.0
 
 ### Added

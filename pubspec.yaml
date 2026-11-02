@@ -1,6 +1,6 @@
 name: resizable_columns
 description: "A Flutter widget that lays out panes in a row or a column with draggable dividers. Supports nesting, minimum sizes, pushing neighbouring panes and right-to-left layouts."
-version: 0.1.0
+version: 0.2.0
 homepage: https://github.com/SERDUN/resizable_columns
 repository: https://github.com/SERDUN/resizable_columns
 issue_tracker: https://github.com/SERDUN/resizable_columns/issues

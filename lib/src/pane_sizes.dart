@@ -83,4 +83,53 @@ List<double> movePaneDivider(
   return moved;
 }
 
+/// Lays out panes some of which are [collapsed].
+///
+/// A collapsed pane takes its entry in [collapsedSizes] (0 when there is none),
+/// and the expanded panes share what is left as [fitPaneSizes] shares it. When
+/// the collapsed sizes together exceed [available], they are scaled down to
+/// fit and the expanded panes get nothing. Indexes in [collapsed] that have no
+/// pane are ignored. With nothing collapsed this is [fitPaneSizes].
+List<double> layoutPaneSizes(
+  List<double> weights, {
+  required double available,
+  required double minSize,
+  Set<int> collapsed = const {},
+  List<double>? collapsedSizes,
+}) {
+  final count = weights.length;
+  final folded = [
+    for (int i = 0; i < count; i++)
+      if (collapsed.contains(i)) i
+  ];
+  if (folded.isEmpty) return fitPaneSizes(weights, available: available, minSize: minSize);
+
+  double collapsedSize(int i) {
+    final size = collapsedSizes != null && i < collapsedSizes.length ? collapsedSizes[i] : 0.0;
+    return size.isFinite && size > 0 ? size : 0.0;
+  }
+
+  final fixed = folded.fold(0.0, (sum, i) => sum + collapsedSize(i));
+  final scale = available.isFinite && fixed > available ? (available > 0 ? available / fixed : 0.0) : 1.0;
+
+  final sizes = List<double>.filled(count, 0.0);
+  for (final i in folded) {
+    sizes[i] = collapsedSize(i) * scale;
+  }
+
+  final expanded = [
+    for (int i = 0; i < count; i++)
+      if (!collapsed.contains(i)) i
+  ];
+  final rest = fitPaneSizes(
+    [for (final i in expanded) weights[i]],
+    available: available.isFinite ? math.max(0.0, available - fixed * scale) : available,
+    minSize: minSize,
+  );
+  for (int k = 0; k < expanded.length; k++) {
+    sizes[expanded[k]] = rest[k];
+  }
+  return sizes;
+}
+
 double _sanitize(double weight) => weight.isFinite && weight > 0 ? weight : 0.0;

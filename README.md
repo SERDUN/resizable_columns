@@ -139,6 +139,35 @@ ResizableColumns(
 The callback is not called for the initial layout or when the parent is resized. Restored sizes are scaled to the
 space available, so the layout keeps its proportions in a window of a different size.
 
+### Collapsing panes
+
+A `ResizableColumnsController` collapses a pane and expands it again. A collapsed pane shrinks to its entry in
+`collapsedSizes` (nothing at all without one), the other panes share the space it leaves in their proportions, and
+expanding it gives it back the size it had:
+
+```dart
+final controller = ResizableColumnsController(collapsed: {2});
+
+ResizableColumns(
+  orientation: ResizableOrientation.horizontal,
+  controller: controller,
+  collapsedSizes: const [56, 0, 0],
+  children: [
+    (context) => controller.isCollapsed(0) ? const IconRail() : const Editor(),
+    (context) => const Preview(),
+    (context) => const Chat(),
+  ],
+);
+
+// In a toolbar:
+IconButton(icon: const Icon(Icons.chat), onPressed: () => controller.toggle(2));
+```
+
+The builders run again when the set of collapsed panes changes, so a pane can show a rail of icons instead of
+disappearing. A divider next to a collapsed pane cannot be dragged, and dragging the others moves only the expanded
+panes. `onSizesChanged` reports a collapsed pane with the weight that expands it back; pass the list as `initialSizes`
+and the same indexes to the controller to restore both.
+
 ## API reference
 
 ### ResizableColumns
@@ -160,6 +189,8 @@ const ResizableColumns({
   this.alignment = Alignment.topLeft,
   this.minChildSize = 50.0,
   this.onSizesChanged,
+  this.controller,
+  this.collapsedSizes,
 })
 ```
 
@@ -176,7 +207,9 @@ const ResizableColumns({
 | `dragMode` | `ResizableDragMode.adjacent` stops at the next pane's minimum; `ResizableDragMode.push` goes on and shrinks the panes further along. |
 | `alignment` | Alignment of each child within its pane. |
 | `minChildSize` | The minimum size a pane can shrink to. |
-| `onSizesChanged` | Called while a divider is dragged, with the size of every pane in pixels. |
+| `onSizesChanged` | Called while a divider is dragged, with the size of every pane in pixels. A collapsed pane is reported with the weight that expands it back. |
+| `controller` | A `ResizableColumnsController` that collapses and expands panes. |
+| `collapsedSizes` | The size of each pane while it is collapsed. The length must match the number of children; 0 for every pane by default. |
 
 ### Behavior
 
@@ -196,6 +229,12 @@ const ResizableColumns({
   change the mouse cursor.
 - **An unbounded parent needs `initialSizes`.** Inside a scroll view along the orientation there is no space to share,
   so the sizes are taken from `initialSizes` as they are.
+
+### ResizableColumnsController
+
+A `ChangeNotifier` that holds the indexes of the collapsed panes: `collapse(index)`, `expand(index)`,
+`toggle(index)`, `setCollapsed(index, collapsed)`, `isCollapsed(index)` and `collapsed`. It notifies only when
+something changes. An index with no pane behind it is ignored.
 
 ### ResizableDragMode
 
